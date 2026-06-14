@@ -1,0 +1,67 @@
+import { betterAuth } from "better-auth";
+import { bearer } from "better-auth/plugins";
+import { polar, checkout, portal, webhooks } from "@polar-sh/better-auth";
+import { pool } from "./db";
+import { polarClient } from "./polar";
+import { upsertEntitlementFromCustomerState } from "./entitlements";
+
+export const auth = betterAuth({
+  database: pool,
+  baseURL: process.env.BETTER_AUTH_URL,
+  secret: process.env.BETTER_AUTH_SECRET,
+
+  // Десктоп (Tauri webview) обращается к API с этих origin. Плюс loopback при логине.
+  trustedOrigins: [
+    "http://localhost:3118",
+    "http://127.0.0.1:3118",
+    "tauri://localhost",
+    "https://tauri.localhost",
+    "http://tauri.localhost",
+  ],
+
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
+  },
+
+  plugins: [
+    // bearer: токен сессии можно слать в Authorization: Bearer <token>.
+    // Десктоп хранит этот токен и ходит с ним в /api/me.
+    bearer(),
+
+    polar({
+      client: polarClient,
+      // При регистрации сразу создаём Polar-клиента с externalId = user.id,
+      // чтобы вебхуки можно было сопоставить с нашим пользователем.
+      createCustomerOnSignUp: true,
+      use: [
+        checkout({
+          products: [
+            { productId: process.env.POLAR_PRODUCT_ID_MONTHLY as string, slug: "pro-monthly" },
+            { productId: process.env.POLAR_PRODUCT_ID_YEARLY as string, slug: "pro-yearly" },
+          ],
+          successUrl: "/success?checkout_id={CHECKOUT_ID}",
+          authenticatedUsersOnly: true,
+        }),
+        portal(),
+        webhooks({
+          secret: process.env.POLAR_WEBHOOK_SECRET as string,
+          // Единый источник истины: при любом изменении состояния клиента
+          // (оформил / продлил / отменил / отозвали) пересчитываем план.
+          onCustomerStateChanged: async (payload) => {
+            await upsertEntitlementFromCustomerState(payload);
+          },
+          // Полезно на этапе sandbox: логировать сырой payload, чтобы свериться
+          // с реальной формой данных. В проде можно убрать.
+          onPayload: async (payload) => {
+            if (process.env.POLAR_SERVER !== "production") {
+              console.log("[polar webhook]", JSON.stringify(payload).slice(0, 1000));
+            }
+          },
+        }),
+      ],
+    }),
+  ],
+});

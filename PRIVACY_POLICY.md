@@ -20,6 +20,32 @@ Meetily is built on the principle that your meeting data should remain private a
 - No vendor lock-in - export your data anytime
 - Complete control over data retention and deletion
 
+## Account & Subscription
+
+Using the app requires signing in. This is the only part of Siplinx AI that
+involves our cloud; your meetings never touch it.
+
+### Sign-in (Google)
+- We use Google Sign-In to create your account. We receive your **email address,
+  name, profile picture and Google account ID** — nothing else from your Google account.
+- We do **not** receive your Google password and request no access to Gmail,
+  Drive, contacts, or any other Google data.
+
+### Payments (Polar)
+- Subscriptions are processed by **Polar** as Merchant of Record. Card and billing
+  details are entered on Polar's checkout and handled by Polar — we never see or
+  store your payment card data.
+- We store only your **subscription status** (free / active / period end) linked to
+  your account, so the app knows whether PRO features are unlocked.
+
+### What stays local
+- Your meeting audio, transcripts, summaries and notes are **never** sent to our
+  account or payment servers. Local-first processing is unchanged.
+
+### Offline use
+- After signing in, the app caches your subscription status and continues to work
+  offline for a grace period without contacting our servers.
+
 ## Usage Analytics
 
 ### What We Collect
