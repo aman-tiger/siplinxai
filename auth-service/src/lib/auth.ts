@@ -31,37 +31,43 @@ export const auth = betterAuth({
     // Десктоп хранит этот токен и ходит с ним в /api/me.
     bearer(),
 
-    polar({
-      client: polarClient,
-      // При регистрации сразу создаём Polar-клиента с externalId = user.id,
-      // чтобы вебхуки можно было сопоставить с нашим пользователем.
-      createCustomerOnSignUp: true,
-      use: [
-        checkout({
-          products: [
-            { productId: process.env.POLAR_PRODUCT_ID_MONTHLY as string, slug: "pro-monthly" },
-            { productId: process.env.POLAR_PRODUCT_ID_YEARLY as string, slug: "pro-yearly" },
-          ],
-          successUrl: "/success?checkout_id={CHECKOUT_ID}",
-          authenticatedUsersOnly: true,
-        }),
-        portal(),
-        webhooks({
-          secret: process.env.POLAR_WEBHOOK_SECRET as string,
-          // Единый источник истины: при любом изменении состояния клиента
-          // (оформил / продлил / отменил / отозвали) пересчитываем план.
-          onCustomerStateChanged: async (payload) => {
-            await upsertEntitlementFromCustomerState(payload);
-          },
-          // Полезно на этапе sandbox: логировать сырой payload, чтобы свериться
-          // с реальной формой данных. В проде можно убрать.
-          onPayload: async (payload) => {
-            if (process.env.POLAR_SERVER !== "production") {
-              console.log("[polar webhook]", JSON.stringify(payload).slice(0, 1000));
-            }
-          },
-        }),
-      ],
-    }),
+    // Polar подключаем ТОЛЬКО если задан POLAR_ACCESS_TOKEN.
+    // Так можно запустить сейчас только авторизацию (Google), а оплату
+    // добавить позже — просто вписав ключи Polar в .env, без правок кода.
+    ...(process.env.POLAR_ACCESS_TOKEN
+      ? [
+          polar({
+            client: polarClient,
+            // При регистрации создаём Polar-клиента с externalId = user.id,
+            // чтобы вебхуки можно было сопоставить с нашим пользователем.
+            createCustomerOnSignUp: true,
+            use: [
+              checkout({
+                products: [
+                  { productId: process.env.POLAR_PRODUCT_ID_MONTHLY as string, slug: "pro-monthly" },
+                  { productId: process.env.POLAR_PRODUCT_ID_YEARLY as string, slug: "pro-yearly" },
+                ],
+                successUrl: "/success?checkout_id={CHECKOUT_ID}",
+                authenticatedUsersOnly: true,
+              }),
+              portal(),
+              webhooks({
+                secret: process.env.POLAR_WEBHOOK_SECRET as string,
+                // Единый источник истины: при любом изменении состояния клиента
+                // (оформил / продлил / отменил / отозвали) пересчитываем план.
+                onCustomerStateChanged: async (payload) => {
+                  await upsertEntitlementFromCustomerState(payload);
+                },
+                // На этапе sandbox логируем сырой payload, чтобы свериться с формой.
+                onPayload: async (payload) => {
+                  if (process.env.POLAR_SERVER !== "production") {
+                    console.log("[polar webhook]", JSON.stringify(payload).slice(0, 1000));
+                  }
+                },
+              }),
+            ],
+          }),
+        ]
+      : []),
   ],
 });
