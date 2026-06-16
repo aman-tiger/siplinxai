@@ -120,3 +120,34 @@ import { ProGate } from "@/components/auth/ProGate";
 - Хранение токена перенести с `plugin-store` на OS keychain (`keyring`) или Stronghold.
 - Сузить CORS (`CORS_ALLOW_ORIGIN`) и `trustedOrigins` под реальные origin десктопа.
 - Google OAuth consent screen → verification перед публичным релизом.
+
+---
+
+## Сборка десктопа на Windows — заметки (build ОТЛОЖЕН)
+
+Авторизация на сервере готова и проверена (прод: https://siplinx-ai.vercel.app).
+Сборку самого десктопа отложили: упёрлись в нативный тулчейн whisper. Что выяснили
+(чтобы возобновить быстро, лучше в CI):
+
+**Нужный тулчейн (Windows):**
+- Rust (rustup, stable-msvc), Visual Studio 2019+ C++ («Desktop development with C++»).
+- CMake, **LLVM 17 или 18** — НЕ новее. На LLVM 22 bindgen у `whisper-rs-sys 0.11.1`
+  генерит opaque-структуру `whisper_full_params` (только `_address`) → 71 ошибка в `whisper-rs`.
+- **Vulkan SDK** — обязателен: в `frontend/src-tauri/Cargo.toml` (Windows-секция)
+  у `whisper-rs` жёстко включён feature `vulkan`. Задать `VULKAN_SDK`.
+
+**Сайдкары** (`frontend/src-tauri/binaries/`):
+- `ffmpeg-<triple>.exe` — качается build-скриптом автоматически.
+- `llama-helper-<triple>.exe` — НЕ авто: собрать `cargo build` в `llama-helper/` и скопировать
+  (см. `frontend/dev-gpu.bat`). Без него tauri падает: «resource path … doesn't exist».
+
+**Грабли с патчем:**
+- `[patch.crates-io]` лежит в `frontend/src-tauri/Cargo.toml`, но Cargo его ИГНОРИРУЕТ
+  (патч обязан быть в корне воркспейса `Cargo.toml`).
+- В патче `esaxx-rs` указывает на форк `thewh1teagle/esaxx-rs` ветка `feat/dynamic-msvc-link` —
+  **репозиторий удалён (404)**. Нужен другой способ починить линковку esaxx-rs на MSVC
+  (новая версия с crates.io / иной форк / фича). Это следующий вероятный блокер.
+
+**Рекомендация:** собирать через GitHub Actions (`tauri-apps/tauri-action`) на `windows-latest`
++ шаг установки Vulkan SDK + закреплённый LLVM 17/18. Это же сразу даёт скачиваемые
+установщики Win+Mac для распространения (кнопка «Скачать» на сайте → GitHub Releases).

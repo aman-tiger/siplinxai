@@ -5,3 +5,5 @@ out
 .env.local
 *.log
 better-auth_migrations
+
+.vercel
