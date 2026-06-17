@@ -66,7 +66,8 @@
                         "notification:allow-is-permission-granted",
                         "updater:default",
                         "process:default",
-                        "oauth:default",
+                        "oauth:allow-start",
+                        "oauth:allow-cancel",
                         "opener:default",
                         {
                             "identifier": "fs:scope",
