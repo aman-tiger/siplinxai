@@ -102,9 +102,8 @@ jobs:
           - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
             target: "aarch64-apple-darwin"
-          - platform: "macos-13"
-            args: "--target x86_64-apple-darwin"
-            target: "x86_64-apple-darwin"
+          # Intel macOS (macos-13) пока убран: раннеры дефицитны, задача висит в
+          # очереди. Вернуть, если у кофаундера Intel-Mac (проверить «Об этом Mac»).
 
     uses: ./.github/workflows/build.yml
     with:
