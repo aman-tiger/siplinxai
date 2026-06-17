@@ -99,11 +99,11 @@ jobs:
           - platform: "windows-latest"
             args: ""
             target: "x86_64-pc-windows-msvc"
+          # macOS universal: один .dmg на Apple Silicon И Intel (для скачивания с сайта).
+          # Сайдкары (llama-helper, ffmpeg) собираются/склеиваются lipo под обе архитектуры.
           - platform: "macos-latest"
-            args: "--target aarch64-apple-darwin"
-            target: "aarch64-apple-darwin"
-          # Intel macOS (macos-13) пока убран: раннеры дефицитны, задача висит в
-          # очереди. Вернуть, если у кофаундера Intel-Mac (проверить «Об этом Mac»).
+            args: "--target universal-apple-darwin"
+            target: "universal-apple-darwin"
 
     uses: ./.github/workflows/build.yml
     with:

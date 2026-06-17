@@ -435,7 +435,13 @@ jobs:
 
       - name: rustup install target
         if: ${{ inputs.target != '' && !contains(inputs.target, 'unknown-linux-gnu') && !contains(inputs.target, 'pc-windows-msvc') }}
-        run: rustup target add ${{ inputs.target }}
+        run: |
+          if [ "${{ inputs.target }}" = "universal-apple-darwin" ]; then
+            # universal-apple-darwin не реальный rustup-таргет — нужны обе архитектуры
+            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          else
+            rustup target add ${{ inputs.target }}
+          fi
 
       - name: Import Apple Developer Certificate
         if: contains(inputs.platform, 'macos') && inputs.sign-binaries
@@ -544,20 +550,31 @@ jobs:
             echo "Using CPU-only mode for Linux"
           fi
 
-          # Build llama-helper from workspace root
-          cargo build --release -p llama-helper $LLAMA_FEATURES
-
-          # Determine target triple and binary extension
+          # Determine target triple
           TARGET="${{ inputs.target }}"
           if [[ -z "$TARGET" ]]; then
             TARGET=$(rustc -vV | grep "host:" | awk '{print $2}')
           fi
 
-          # Copy binary to binaries directory
           mkdir -p frontend/src-tauri/binaries
-          cp target/release/llama-helper frontend/src-tauri/binaries/llama-helper-${TARGET}
 
-          echo "Copied llama-helper to frontend/src-tauri/binaries/llama-helper-${TARGET}"
+          if [[ "$TARGET" == "universal-apple-darwin" ]]; then
+            # Universal: собрать обе архитектуры и склеить lipo в один бинарь.
+            echo "Building llama-helper for arm64 + x86_64 (universal)"
+            cargo build --release -p llama-helper $LLAMA_FEATURES --target aarch64-apple-darwin
+            cargo build --release -p llama-helper $LLAMA_FEATURES --target x86_64-apple-darwin
+            lipo -create \
+              target/aarch64-apple-darwin/release/llama-helper \
+              target/x86_64-apple-darwin/release/llama-helper \
+              -output frontend/src-tauri/binaries/llama-helper-universal-apple-darwin
+            lipo -info frontend/src-tauri/binaries/llama-helper-universal-apple-darwin
+          else
+            # Build llama-helper from workspace root (native)
+            cargo build --release -p llama-helper $LLAMA_FEATURES
+            cp target/release/llama-helper frontend/src-tauri/binaries/llama-helper-${TARGET}
+            echo "Copied llama-helper to frontend/src-tauri/binaries/llama-helper-${TARGET}"
+          fi
+
           ls -la frontend/src-tauri/binaries/
 
       - name: Cache FFmpeg binary
@@ -566,20 +583,44 @@ jobs:
           path: frontend/src-tauri/binaries/ffmpeg-*
           key: ${{ runner.os }}-ffmpeg-${{ hashFiles('frontend/src-tauri/build.rs', 'frontend/src-tauri/build/ffmpeg.rs') }}    
 
+      - name: Prepare universal FFmpeg sidecar (macOS universal)
+        if: ${{ inputs.target == 'universal-apple-darwin' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARM_URL="https://github.com/Zackriya-Solutions/ffmpeg-binaries/releases/download/0.0.1/ffmpeg80arm.zip"
+          X64_URL="https://github.com/Zackriya-Solutions/ffmpeg-binaries/releases/download/0.0.1/ffmpeg-8.0.1.zip"
+          work="$(mktemp -d)"
+          curl -sL "$ARM_URL" -o "$work/arm.zip"
+          curl -sL "$X64_URL" -o "$work/x64.zip"
+          unzip -q "$work/arm.zip" -d "$work/arm"
+          unzip -q "$work/x64.zip" -d "$work/x64"
+          ARM_FF="$(find "$work/arm" -type f -name ffmpeg | head -1)"
+          X64_FF="$(find "$work/x64" -type f -name ffmpeg | head -1)"
+          echo "arm=$ARM_FF x64=$X64_FF"
+          lipo -create "$ARM_FF" "$X64_FF" -output "$work/ffmpeg-universal"
+          chmod +x "$work/ffmpeg-universal"
+          lipo -info "$work/ffmpeg-universal"
+          DST=frontend/src-tauri/binaries
+          mkdir -p "$DST"
+          # Universal-имя для бандла Tauri + per-arch имена: чтобы build.rs не качал
+          # x86_64-ffmpeg (он бы не прошёл verify на arm-раннере).
+          cp "$work/ffmpeg-universal" "$DST/ffmpeg-universal-apple-darwin"
+          cp "$work/ffmpeg-universal" "$DST/ffmpeg-aarch64-apple-darwin"
+          cp "$work/ffmpeg-universal" "$DST/ffmpeg-x86_64-apple-darwin"
+          chmod +x "$DST"/ffmpeg-*
+          ls -la "$DST"
+
       - name: Build with Tauri
         id: tauri-build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_ID: ${{ inputs.sign-binaries && secrets.APPLE_ID || '' }}
-          APPLE_ID_PASSWORD: ${{ inputs.sign-binaries && secrets.APPLE_ID_PASSWORD || '' }}
-          APPLE_PASSWORD: ${{ inputs.sign-binaries && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ inputs.sign-binaries && secrets.APPLE_TEAM_ID || '' }}
-          # APPLE_CERTIFICATE НЕ передаём пустым: иначе tauri пытается импортировать
-          # пустой серт и падает (security import) даже при sign-binaries=false.
-          # При подписи серт ставит шаг «Import Apple Developer Certificate» в build.keychain,
-          # а tauri находит его по APPLE_SIGNING_IDENTITY. Без подписи — ad-hoc ("-") из конфига.
-          APPLE_SIGNING_IDENTITY: ${{ inputs.sign-binaries && env.CERT_ID || '' }}
+          # Apple signing/notarization env НАМЕРЕННО не задаём на форке: sign-binaries
+          # всегда false (нет Apple Developer аккаунта). Пустые APPLE_SIGNING_IDENTITY/
+          # APPLE_CERTIFICATE ломали codesign ("item not found in keychain" / "import").
+          # macOS подписывается ad-hoc через signingIdentity:"-" в tauri.conf.json.
+          # Для подписанных сборок верни эти env (APPLE_ID/TEAM_ID/SIGNING_IDENTITY и серт-шаг).
           # Tauri updater signing (ALWAYS enabled for .sig files)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
