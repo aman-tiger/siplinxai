@@ -6,7 +6,8 @@
 **/models/*.bin
 /.pnp
 .pnp.*
-pnpm-lock.yaml
+# pnpm-lock.yaml коммитим намеренно: чтобы CI ставил те же версии, что локально
+# (без него свежий install ломал типы, напр. @tauri-apps/plugin-store StoreOptions).
 package-lock.json
 .yarn/*
 !.yarn/patches

@@ -24,7 +24,9 @@ const K_ME = "auth.me";
 const K_VERIFIED_AT = "auth.lastVerifiedAt";
 
 async function store() {
-  return await Store.load(STORE_FILE, { autoSave: true });
+  // defaults обязателен в новых версиях @tauri-apps/plugin-store (StoreOptions);
+  // указываем пустой объект — совместимо со старой и новой версией.
+  return await Store.load(STORE_FILE, { autoSave: true, defaults: {} });
 }
 
 export async function getToken(): Promise<string | null> {

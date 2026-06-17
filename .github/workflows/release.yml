@@ -93,10 +93,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Форк siplinxai: пока собираем только Windows (macOS — позже, нужны Apple-секреты).
+          # Форк siplinxai: Windows + macOS (Apple Silicon и Intel). Без подписи
+          # (sign-binaries=false) — macOS-сборки ad-hoc, при первом запуске у юзера
+          # ПКМ → «Открыть» (Gatekeeper). fail-fast=false: провал одной не валит другие.
           - platform: "windows-latest"
             args: ""
             target: "x86_64-pc-windows-msvc"
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+            target: "aarch64-apple-darwin"
+          - platform: "macos-13"
+            args: "--target x86_64-apple-darwin"
+            target: "x86_64-apple-darwin"
 
     uses: ./.github/workflows/build.yml
     with:
