@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { polarClient } from "@/lib/polar";
 
 export const dynamic = "force-dynamic";
+
+const POLAR_API =
+  process.env.POLAR_SERVER === "production"
+    ? "https://api.polar.sh"
+    : "https://sandbox-api.polar.sh";
 
 /**
  * Десктоп вызывает с Authorization: Bearer <token> (fetch), получает { url }
  * и сам открывает url в системном браузере. Так не зависим от cookie в браузере.
  *
  * ?plan=monthly | yearly
+ *
+ * Зовём Polar REST напрямую (не через SDK): имя поля external-id в SDK
+ * нестабильно между версиями и молча отбрасывалось, из-за чего клиент не
+ * привязывался к нашему user.id (вебхук приходил без external_id → план не
+ * обновлялся). Snake_case customer_external_id проверен на боевом API.
  */
 export async function GET(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -29,14 +38,26 @@ export async function GET(req: NextRequest) {
 
   const successUrl = new URL("/success", req.url).toString();
 
-  // ВНИМАНИЕ: сигнатура checkouts.create зависит от версии @polar-sh/sdk.
-  // Если SDK ругается — сверь поля по docs.polar.sh (products / productPriceId).
-  const checkoutSession = await polarClient.checkouts.create({
-    products: [productId],
-    successUrl,
-    customerExternalId: session.user.id,
-    customerEmail: session.user.email ?? undefined,
-  } as any);
+  const r = await fetch(`${POLAR_API}/v1/checkouts/`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.POLAR_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      products: [productId],
+      success_url: successUrl,
+      // Привязка Polar-клиента к нашему пользователю — ключ для вебхуков.
+      customer_external_id: session.user.id,
+      customer_email: session.user.email ?? undefined,
+    }),
+  });
 
-  return NextResponse.json({ url: (checkoutSession as any).url });
+  if (!r.ok) {
+    const detail = await r.text();
+    return NextResponse.json({ error: "checkout_failed", detail }, { status: 502 });
+  }
+
+  const checkout = await r.json();
+  return NextResponse.json({ url: checkout.url });
 }
