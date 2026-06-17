@@ -21,6 +21,18 @@ export default function TestLogin() {
     }
   };
 
+  // Тест оплаты: дергаем наш checkout-роут (по cookie-сессии) и уходим в Polar.
+  const buyPro = async () => {
+    try {
+      const r = await fetch("/api/billing/checkout?plan=monthly");
+      const j = await r.json();
+      if (j?.url) window.location.href = j.url;
+      else setErr("checkout: " + JSON.stringify(j));
+    } catch (e) {
+      setErr(String(e));
+    }
+  };
+
   useEffect(() => {
     loadMe();
   }, []);
@@ -48,6 +60,20 @@ export default function TestLogin() {
           >
             {JSON.stringify(me, null, 2)}
           </pre>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginBottom: 12 }}>
+            <button
+              onClick={buyPro}
+              style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer", background: "#6F1D1B", color: "#FFE6A7", border: "none", fontWeight: 600 }}
+            >
+              Купить PRO (sandbox)
+            </button>
+            <button
+              onClick={loadMe}
+              style={{ padding: "8px 16px", borderRadius: 8, cursor: "pointer" }}
+            >
+              Обновить статус
+            </button>
+          </div>
           <button
             onClick={async () => {
               await authClient.signOut();
