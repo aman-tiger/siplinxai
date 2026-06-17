@@ -563,6 +563,11 @@ jobs:
             echo "Building llama-helper for arm64 + x86_64 (universal)"
             cargo build --release -p llama-helper $LLAMA_FEATURES --target aarch64-apple-darwin
             cargo build --release -p llama-helper $LLAMA_FEATURES --target x86_64-apple-darwin
+            # Per-arch копии нужны: tauri_build при сборке каждой суб-арки проверяет
+            # наличие сайдкара llama-helper-<arch>-apple-darwin (иначе "resource doesn't exist").
+            cp target/aarch64-apple-darwin/release/llama-helper frontend/src-tauri/binaries/llama-helper-aarch64-apple-darwin
+            cp target/x86_64-apple-darwin/release/llama-helper frontend/src-tauri/binaries/llama-helper-x86_64-apple-darwin
+            # Universal — для финального бандла (Tauri externalBin сам lipo не делает).
             lipo -create \
               target/aarch64-apple-darwin/release/llama-helper \
               target/x86_64-apple-darwin/release/llama-helper \
