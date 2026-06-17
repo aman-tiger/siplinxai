@@ -22,6 +22,11 @@ export async function GET(req: NextRequest) {
       ? (process.env.POLAR_PRODUCT_ID_YEARLY as string)
       : (process.env.POLAR_PRODUCT_ID_MONTHLY as string);
 
+  // План недоступен, если для него не задан ID продукта (напр. годовой пока не заведён).
+  if (!productId) {
+    return NextResponse.json({ error: `plan "${plan}" unavailable` }, { status: 400 });
+  }
+
   const successUrl = new URL("/success", req.url).toString();
 
   // ВНИМАНИЕ: сигнатура checkouts.create зависит от версии @polar-sh/sdk.

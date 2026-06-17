@@ -43,10 +43,17 @@ export const auth = betterAuth({
             createCustomerOnSignUp: true,
             use: [
               checkout({
+                // Включаем только те планы, для которых задан ID продукта в Polar.
+                // Сейчас заведён только месячный; годовой подключится сам, как
+                // только появится POLAR_PRODUCT_ID_YEARLY (без правок кода).
                 products: [
-                  { productId: process.env.POLAR_PRODUCT_ID_MONTHLY as string, slug: "pro-monthly" },
-                  { productId: process.env.POLAR_PRODUCT_ID_YEARLY as string, slug: "pro-yearly" },
-                ],
+                  process.env.POLAR_PRODUCT_ID_MONTHLY
+                    ? { productId: process.env.POLAR_PRODUCT_ID_MONTHLY, slug: "pro-monthly" }
+                    : null,
+                  process.env.POLAR_PRODUCT_ID_YEARLY
+                    ? { productId: process.env.POLAR_PRODUCT_ID_YEARLY, slug: "pro-yearly" }
+                    : null,
+                ].filter(Boolean) as { productId: string; slug: string }[],
                 successUrl: "/success?checkout_id={CHECKOUT_ID}",
                 authenticatedUsersOnly: true,
               }),

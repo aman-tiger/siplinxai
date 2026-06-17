@@ -123,8 +123,9 @@ export function ProGate({
         Оформите подписку Siplinx AI PRO, чтобы разблокировать.
       </p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-        <UpgradeButton plan="monthly" label="PRO / месяц" />
-        <UpgradeButton plan="yearly" label="PRO / год" />
+        {/* Сейчас в Polar заведён только месячный план. Кнопку «PRO / год»
+            вернуть, когда появится годовой продукт (POLAR_PRODUCT_ID_YEARLY). */}
+        <UpgradeButton plan="monthly" label="Оформить PRO" />
       </div>
     </div>
   );
