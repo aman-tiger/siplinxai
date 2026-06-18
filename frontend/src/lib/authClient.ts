@@ -78,8 +78,11 @@ function randomState(): string {
 }
 
 const DONE_HTML = `<!doctype html><meta charset="utf-8">
-<body style="font-family:system-ui;text-align:center;padding:48px;background:#FFE6A7;color:#432818">
-<h2>Готово ✓</h2><p>Можно вернуться в приложение Siplinx AI. Это окно можно закрыть.</p></body>`;
+<body style="font-family:system-ui;text-align:center;padding:48px;background:#FFFFFF;color:#0E1116">
+<h2 style="font-size:24px;margin:0 0 8px">
+<span style="background:linear-gradient(135deg,#2F6BFF,#7A3BE0);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Готово ✓</span>
+</h2>
+<p style="color:#5A6472">Можно вернуться в приложение Siplinx AI. Это окно можно закрыть.</p></body>`;
 
 /**
  * Полный флоу логина через Google:
