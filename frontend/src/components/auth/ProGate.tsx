@@ -5,6 +5,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { openCheckout, openPortal } from "@/lib/authClient";
 
 /**
+ * Бренд Siplinx AI: градиент синий #2F6BFF → фиолетовый #7A3BE0.
+ */
+const BRAND_GRADIENT = "linear-gradient(135deg, #2F6BFF 0%, #7A3BE0 100%)";
+const BRAND_BLUE = "#2F6BFF";
+
+/**
  * Кнопка апгрейда. Открывает Polar checkout в браузере и затем опрашивает
  * /api/me, пока подписка не станет активной (вебхук обновит статус).
  */
@@ -51,10 +57,12 @@ export function UpgradeButton({
         padding: "10px 18px",
         borderRadius: 10,
         border: "none",
-        background: "#6F1D1B",
-        color: "#FFE6A7",
+        background: BRAND_GRADIENT,
+        color: "#FFFFFF",
         fontWeight: 600,
         cursor: busy ? "default" : "pointer",
+        opacity: busy ? 0.7 : 1,
+        boxShadow: "0 6px 18px rgba(47,107,255,0.22)",
       }}
     >
       {busy ? "Ждём оплату…" : label ?? "Оформить PRO"}
@@ -79,9 +87,10 @@ export function ManageSubscriptionButton() {
       style={{
         padding: "8px 14px",
         borderRadius: 8,
-        border: "1px solid #99582A",
+        border: `1px solid ${BRAND_BLUE}`,
         background: "transparent",
-        color: "#432818",
+        color: BRAND_BLUE,
+        fontWeight: 600,
         cursor: "pointer",
       }}
     >
@@ -108,18 +117,19 @@ export function ProGate({
   return (
     <div
       style={{
-        border: "1px dashed #99582A",
+        border: "1px solid rgba(47,107,255,0.25)",
         borderRadius: 12,
         padding: 20,
         textAlign: "center",
-        background: "rgba(187,148,87,0.12)",
-        color: "#432818",
+        background:
+          "linear-gradient(135deg, rgba(47,107,255,0.06) 0%, rgba(122,59,224,0.06) 100%)",
+        color: "#0E1116",
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 6 }}>
         {feature ? `${feature} — функция PRO` : "Функция PRO"}
       </div>
-      <p style={{ opacity: 0.8, fontSize: 14, marginBottom: 14 }}>
+      <p style={{ color: "#5A6472", fontSize: 14, marginBottom: 14 }}>
         Оформите подписку Siplinx AI PRO, чтобы разблокировать.
       </p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
