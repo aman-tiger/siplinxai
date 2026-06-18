@@ -2,7 +2,7 @@
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
     "productName": "Siplinx AI",
     "mainBinaryName": "siplinx-ai",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "identifier": "com.siplinx.ai",
     "build": {
         "frontendDist": "../out",
@@ -13,7 +13,7 @@
     "app": {
         "windows": [
             {
-                "title": "meetily",
+                "title": "Siplinx AI",
                 "width": 1100,
                 "height": 700,
                 "resizable": true,
@@ -92,7 +92,7 @@
             "app",
             "dmg"
         ],
-        "createUpdaterArtifacts": false,
+        "createUpdaterArtifacts": true,
         "icon": [
             "icons/icon.png",
             "icons/app_icon.icns",
@@ -116,7 +116,7 @@
     },
     "plugins": {
         "updater": {
-            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDQTYzMUQ3ODc5N0M4MkEKUldRcXlKZUgxekdtN09DRkVWSHNpZlJseEVOUmpNd1dDSTNaLzZ3MXJGTnY3WW1pdnlOYjBpbkIK",
+            "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk4RDJBQUZEMzNBMEEzMEUKUldRT282QXovYXJTbUNYa3BkT015d2lIRllvUllLNVR2ZFQvU3NpOE1MMGVIV0sxVWZZV3BSQisK",
             "endpoints": [
                 "https://github.com/aman-tiger/siplinxai/releases/latest/download/latest.json"
             ]
