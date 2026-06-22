@@ -2,17 +2,18 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import LoginScreen from "./LoginScreen";
+import PaywallScreen from "./PaywallScreen";
 
 /**
- * Гейт регистрации: пока статус не подтверждён — сплэш; без входа — экран логина;
- * после входа — само приложение (children).
+ * Гейт доступа: пока статус не подтверждён — сплэш; без входа — экран логина;
+ * после входа без активной подписки/триала — пейволл; с PRO — само приложение.
  *
  * Бренд Siplinx AI: градиент синий #2F6BFF → фиолетовый #7A3BE0 (как в LoginScreen).
  */
 const BRAND_GRADIENT = "linear-gradient(135deg, #2F6BFF 0%, #7A3BE0 100%)";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const { status } = useAuth();
+  const { status, isPro } = useAuth();
 
   if (status === "loading") {
     return (
@@ -60,6 +61,11 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (status === "unauthenticated") {
     return <LoginScreen />;
+  }
+
+  // Полный пейволл: вошёл, но без активной подписки/триала — приложение закрыто.
+  if (!isPro) {
+    return <PaywallScreen />;
   }
 
   return <>{children}</>;
