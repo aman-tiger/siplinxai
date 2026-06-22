@@ -57,6 +57,28 @@ jobs:
           ref: ${{ inputs.ref }}
           fetch-depth: 0
 
+      # Ранний fail-fast: проверяем Apple-секреты ДО долгой компиляции (~30 мин),
+      # чтобы опечатка в имени секрета валила сборку за минуту, а не в конце.
+      - name: Preflight - verify Apple signing secrets (macOS release)
+        if: contains(inputs.platform, 'macos') && inputs.release-id != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then echo "::error::Repo secret $v is missing or empty"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Apple signing secrets incomplete — проверь точные имена в Settings → Secrets → Actions."
+            exit 1
+          fi
+          echo "✓ Все 6 Apple-секретов на месте — подписываем и нотаризуем."
+
       - name: Get version from tauri.conf.json.
         id: get-version
         shell: bash
@@ -615,26 +637,6 @@ jobs:
           cp "$work/ffmpeg-universal" "$DST/ffmpeg-x86_64-apple-darwin"
           chmod +x "$DST"/ffmpeg-*
           ls -la "$DST"
-
-      - name: Preflight - verify Apple signing secrets (macOS release)
-        if: contains(inputs.platform, 'macos') && inputs.release-id != ''
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          missing=0
-          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
-            if [ -z "${!v}" ]; then echo "::error::Repo secret $v is missing or empty"; missing=1; fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            echo "Apple signing secrets incomplete — проверь точные имена в Settings → Secrets → Actions."
-            exit 1
-          fi
-          echo "✓ Все 6 Apple-секретов на месте — подписываем и нотаризуем."
 
       - name: Build with Tauri
         id: tauri-build
