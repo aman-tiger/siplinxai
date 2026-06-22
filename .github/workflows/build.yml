@@ -616,16 +616,41 @@ jobs:
           chmod +x "$DST"/ffmpeg-*
           ls -la "$DST"
 
+      - name: Preflight - verify Apple signing secrets (macOS release)
+        if: contains(inputs.platform, 'macos') && inputs.release-id != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then echo "::error::Repo secret $v is missing or empty"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Apple signing secrets incomplete — проверь точные имена в Settings → Secrets → Actions."
+            exit 1
+          fi
+          echo "✓ Все 6 Apple-секретов на месте — подписываем и нотаризуем."
+
       - name: Build with Tauri
         id: tauri-build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Apple signing/notarization env НАМЕРЕННО не задаём на форке: sign-binaries
-          # всегда false (нет Apple Developer аккаунта). Пустые APPLE_SIGNING_IDENTITY/
-          # APPLE_CERTIFICATE ломали codesign ("item not found in keychain" / "import").
-          # macOS подписывается ad-hoc через signingIdentity:"-" в tauri.conf.json.
-          # Для подписанных сборок верни эти env (APPLE_ID/TEAM_ID/SIGNING_IDENTITY и серт-шаг).
+          # Apple подпись + нотаризация macOS (секреты добавил владелец репо, Аман).
+          # tauri-action сам импортирует серт во временный keychain, подписывает
+          # Developer ID Application и нотаризует через notarytool. На Windows-раннере
+          # эти переменные игнорируются tauri-action — пусть стоят.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # Tauri updater signing (ALWAYS enabled for .sig files)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
