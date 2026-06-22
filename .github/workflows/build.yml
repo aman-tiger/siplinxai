@@ -59,25 +59,48 @@ jobs:
 
       # Ранний fail-fast: проверяем Apple-секреты ДО долгой компиляции (~30 мин),
       # чтобы опечатка в имени секрета валила сборку за минуту, а не в конце.
+      # APPLE_SIGNING_IDENTITY тут НЕ требуется — выводим его из сертификата ниже.
       - name: Preflight - verify Apple signing secrets (macOS release)
         if: contains(inputs.platform, 'macos') && inputs.release-id != ''
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           missing=0
-          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [ -z "${!v}" ]; then echo "::error::Repo secret $v is missing or empty"; missing=1; fi
           done
           if [ "$missing" -ne 0 ]; then
             echo "Apple signing secrets incomplete — проверь точные имена в Settings → Secrets → Actions."
             exit 1
           fi
-          echo "✓ Все 6 Apple-секретов на месте — подписываем и нотаризуем."
+          echo "✓ Все обязательные Apple-секреты на месте."
+
+      # Выводим строку Developer ID Application из самого сертификата, чтобы не
+      # требовать отдельный секрет APPLE_SIGNING_IDENTITY (его легко забыть).
+      - name: Derive Apple signing identity from certificate
+        if: contains(inputs.platform, 'macos') && inputs.release-id != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PW=$(openssl rand -base64 18)
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/id-cert.p12
+          security create-keychain -p "$KEYCHAIN_PW" id.keychain
+          security unlock-keychain -p "$KEYCHAIN_PW" id.keychain
+          security import /tmp/id-cert.p12 -k id.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          IDENTITY=$(security find-identity -v -p codesigning id.keychain | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          security delete-keychain id.keychain || true
+          rm -f /tmp/id-cert.p12
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::В сертификате нет identity 'Developer ID Application' — проверь, что APPLE_CERTIFICATE это Developer ID Application, а не другой тип."
+            exit 1
+          fi
+          echo "Derived signing identity: $IDENTITY"
+          echo "APPLE_SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
 
       - name: Get version from tauri.conf.json.
         id: get-version
@@ -649,7 +672,7 @@ jobs:
           # эти переменные игнорируются tauri-action — пусть стоят.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
