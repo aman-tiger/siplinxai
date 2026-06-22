@@ -84,11 +84,58 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
   if (rows.length === 0) {
     return { plan: "free", status: "none", currentPeriodEnd: null };
   }
+
+  const status: string = rows[0].status ?? "none";
+  const periodEnd: Date | null = rows[0].current_period_end
+    ? new Date(rows[0].current_period_end)
+    : null;
+
+  // Триал (без карты/вебхуков) истекает САМ по дате: после current_period_end → free.
+  // Платные подписки (status=active) по дате НЕ гасим — их закрывает вебхук Polar.
+  const trialExpired =
+    status === "trialing" && periodEnd !== null && periodEnd.getTime() < Date.now();
+
+  const plan: "free" | "pro" = !trialExpired && rows[0].plan === "pro" ? "pro" : "free";
+
   return {
-    plan: rows[0].plan === "pro" ? "pro" : "free",
-    status: rows[0].status ?? "none",
-    currentPeriodEnd: rows[0].current_period_end
-      ? new Date(rows[0].current_period_end).toISOString()
-      : null,
+    plan,
+    status: trialExpired ? "expired" : status,
+    currentPeriodEnd: periodEnd ? periodEnd.toISOString() : null,
   };
+}
+
+export type TrialResult =
+  | { ok: true; currentPeriodEnd: string }
+  | { ok: false; reason: "already_pro" };
+
+/**
+ * Выдаёт бесплатный триал на N дней (без карты, без Polar). Пишет в ту же
+ * таблицу user_entitlement: plan=pro, status=trialing, срок = now + days.
+ * По решению заказчицы повторных проверок НЕТ — код можно активировать
+ * многократно. Единственная защита: не затираем активную ПЛАТНУЮ подписку.
+ */
+export async function startTrial(userId: string, days: number): Promise<TrialResult> {
+  await ensureSchema();
+
+  const { rows } = await pool.query(
+    `SELECT plan, status FROM user_entitlement WHERE user_id = $1`,
+    [userId]
+  );
+  if (rows.length > 0 && rows[0].plan === "pro" && rows[0].status === "active") {
+    return { ok: false, reason: "already_pro" };
+  }
+
+  const periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  await pool.query(
+    `INSERT INTO user_entitlement (user_id, customer_id, plan, status, current_period_end, updated_at)
+     VALUES ($1, NULL, 'pro', 'trialing', $2, now())
+     ON CONFLICT (user_id) DO UPDATE SET
+       plan               = 'pro',
+       status             = 'trialing',
+       current_period_end = EXCLUDED.current_period_end,
+       updated_at         = now()`,
+    [userId, periodEnd.toISOString()]
+  );
+  console.log(`[entitlements] trial granted user=${userId} until=${periodEnd.toISOString()}`);
+  return { ok: true, currentPeriodEnd: periodEnd.toISOString() };
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { openCheckout, openPortal } from "@/lib/authClient";
+import { openCheckout, openPortal, redeemTrial } from "@/lib/authClient";
 
 /**
  * Бренд Siplinx AI: градиент синий #2F6BFF → фиолетовый #7A3BE0.
@@ -100,6 +100,84 @@ export function ManageSubscriptionButton() {
 }
 
 /**
+ * Поле активации бесплатного триала по промокоду (без карты).
+ * При успехе обновляет статус — /api/me вернёт PRO, и гейт пропустит контент.
+ */
+export function PromoCodeField() {
+  const { refresh } = useAuth();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const submit = async () => {
+    const value = code.trim();
+    if (!value) return;
+    setBusy(true);
+    setMsg(null);
+    const res = await redeemTrial(value);
+    if (res.ok) {
+      setMsg({ kind: "ok", text: "Промокод активирован — открываем PRO…" });
+      await refresh();
+    } else {
+      setMsg({ kind: "err", text: res.error });
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submit();
+          }}
+          placeholder="Промокод"
+          disabled={busy}
+          aria-label="Промокод"
+          style={{
+            padding: "9px 12px",
+            borderRadius: 8,
+            border: "1px solid rgba(47,107,255,0.35)",
+            background: "#FFFFFF",
+            color: "#0E1116",
+            minWidth: 160,
+          }}
+        />
+        <button
+          onClick={submit}
+          disabled={busy || !code.trim()}
+          style={{
+            padding: "9px 16px",
+            borderRadius: 8,
+            border: `1px solid ${BRAND_BLUE}`,
+            background: "transparent",
+            color: BRAND_BLUE,
+            fontWeight: 600,
+            cursor: busy || !code.trim() ? "default" : "pointer",
+            opacity: busy || !code.trim() ? 0.6 : 1,
+          }}
+        >
+          {busy ? "Активируем…" : "Активировать"}
+        </button>
+      </div>
+      {msg && (
+        <p
+          style={{
+            marginTop: 8,
+            fontSize: 13,
+            color: msg.kind === "ok" ? "#1B7F4B" : "#B23B3B",
+          }}
+        >
+          {msg.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * Гейт PRO-фичи. Оборачивай платные функции:
  *   <ProGate feature="Экспорт в PDF"> <PdfExportButton/> </ProGate>
  * Для не-PRO показывает апселл вместо содержимого.
@@ -137,6 +215,10 @@ export function ProGate({
             вернуть, когда появится годовой продукт (POLAR_PRODUCT_ID_YEARLY). */}
         <UpgradeButton plan="monthly" label="Оформить PRO" />
       </div>
+      <div style={{ marginTop: 12, fontSize: 12, color: "#5A6472" }}>
+        или активируйте промокод на бесплатный период
+      </div>
+      <PromoCodeField />
     </div>
   );
 }

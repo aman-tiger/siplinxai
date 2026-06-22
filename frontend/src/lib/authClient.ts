@@ -180,6 +180,34 @@ export async function openPortal(): Promise<void> {
   await openAuthedUrl(`/api/billing/portal`);
 }
 
+/**
+ * Активировать бесплатный триал по промокоду (без карты).
+ * После успеха вызывающий код должен сделать refresh() — /api/me вернёт PRO.
+ */
+export async function redeemTrial(
+  code: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const token = await getToken();
+  if (!token) return { ok: false, error: "Не авторизованы" };
+  try {
+    const res = await fetch(`${AUTH_URL}/api/trial/redeem`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    if (res.ok) return { ok: true };
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    const messages: Record<string, string> = {
+      invalid_code: "Неверный промокод",
+      already_pro: "У вас уже активна PRO-подписка",
+      unauthorized: "Сессия истекла, войдите заново",
+    };
+    return { ok: false, error: messages[data.error ?? ""] ?? `Ошибка сервера (${res.status})` };
+  } catch {
+    return { ok: false, error: "Нет связи с сервером" };
+  }
+}
+
 export async function logout(): Promise<void> {
   await clearSession();
 }
