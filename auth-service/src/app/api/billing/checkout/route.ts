@@ -26,12 +26,22 @@ export async function GET(req: NextRequest) {
   }
 
   const plan = new URL(req.url).searchParams.get("plan") ?? "monthly";
-  const productId =
-    plan === "yearly"
-      ? (process.env.POLAR_PRODUCT_ID_YEARLY as string)
-      : (process.env.POLAR_PRODUCT_ID_MONTHLY as string);
 
-  // План недоступен, если для него не задан ID продукта (напр. годовой пока не заведён).
+  // Выбор продукта + опциональный триал по плану.
+  // trial3 — 3-дневный триал Polar с обязательной картой на продукте $5/мес.
+  const TRIAL3_DAYS = Number(process.env.TRIAL3_DAYS ?? "3") || 3;
+  let productId: string | undefined;
+  let trial: { interval: "day"; count: number } | null = null;
+  if (plan === "yearly") {
+    productId = process.env.POLAR_PRODUCT_ID_YEARLY;
+  } else if (plan === "trial3") {
+    productId = process.env.POLAR_PRODUCT_ID_TRIAL5;
+    trial = { interval: "day", count: TRIAL3_DAYS };
+  } else {
+    productId = process.env.POLAR_PRODUCT_ID_MONTHLY;
+  }
+
+  // План недоступен, если для него не задан ID продукта (напр. trial3/годовой не заведён).
   if (!productId) {
     return NextResponse.json({ error: `plan "${plan}" unavailable` }, { status: 400 });
   }
@@ -50,6 +60,8 @@ export async function GET(req: NextRequest) {
       // Привязка Polar-клиента к нашему пользователю — ключ для вебхуков.
       customer_external_id: session.user.id,
       customer_email: session.user.email ?? undefined,
+      // Polar соберёт карту, но не спишет до конца триала (поля snake_case).
+      ...(trial ? { trial_interval: trial.interval, trial_interval_count: trial.count } : {}),
     }),
   });
 

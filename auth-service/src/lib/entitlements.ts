@@ -78,7 +78,7 @@ export async function upsertEntitlementFromCustomerState(payload: AnyObj): Promi
 export async function getEntitlement(userId: string): Promise<Entitlement> {
   await ensureSchema();
   const { rows } = await pool.query(
-    `SELECT plan, status, current_period_end FROM user_entitlement WHERE user_id = $1`,
+    `SELECT plan, status, current_period_end, customer_id FROM user_entitlement WHERE user_id = $1`,
     [userId]
   );
   if (rows.length === 0) {
@@ -90,10 +90,14 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
     ? new Date(rows[0].current_period_end)
     : null;
 
-  // Триал (без карты/вебхуков) истекает САМ по дате: после current_period_end → free.
-  // Платные подписки (status=active) по дате НЕ гасим — их закрывает вебхук Polar.
+  // НАШ триал по промокоду (без карты, customer_id IS NULL, без вебхуков) истекает
+  // САМ по дате: после current_period_end → free. Триалы и подписки Polar
+  // (customer_id задан) по дате НЕ трогаем — их статус ведёт вебхук Polar.
   const trialExpired =
-    status === "trialing" && periodEnd !== null && periodEnd.getTime() < Date.now();
+    status === "trialing" &&
+    !rows[0].customer_id &&
+    periodEnd !== null &&
+    periodEnd.getTime() < Date.now();
 
   const plan: "free" | "pro" = !trialExpired && rows[0].plan === "pro" ? "pro" : "free";
 

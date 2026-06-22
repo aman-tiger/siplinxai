@@ -18,7 +18,7 @@ export function UpgradeButton({
   plan = "monthly",
   label,
 }: {
-  plan?: "monthly" | "yearly";
+  plan?: "monthly" | "yearly" | "trial3";
   label?: string;
 }) {
   const { refresh, isPro } = useAuth();

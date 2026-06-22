@@ -46,8 +46,12 @@ export default function PaywallScreen() {
           промокод на бесплатный период.
         </p>
 
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <UpgradeButton plan="monthly" label="Оформить PRO" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+          <UpgradeButton plan="trial3" label="3 дня бесплатно, потом $5/мес" />
+          <UpgradeButton plan="monthly" label="Оформить PRO — $9/мес" />
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: "#94A0B0" }}>
+          Для триала на 3 дня нужна карта. Списание начнётся после триала, отменить можно в любой момент.
         </div>
 
         <div style={{ marginTop: 14, fontSize: 12, color: "#5A6472" }}>
