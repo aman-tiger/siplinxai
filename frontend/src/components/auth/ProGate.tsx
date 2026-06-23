@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useT } from "@/contexts/I18nContext";
 import { openCheckout, openPortal, redeemTrial } from "@/lib/authClient";
 
 /**
@@ -9,6 +10,8 @@ import { openCheckout, openPortal, redeemTrial } from "@/lib/authClient";
  */
 const BRAND_GRADIENT = "linear-gradient(135deg, #2F6BFF 0%, #7A3BE0 100%)";
 const BRAND_BLUE = "#2F6BFF";
+
+const KNOWN_PROMO_ERRORS = ["invalid_code", "already_pro", "unauthorized", "network"];
 
 /**
  * Кнопка апгрейда. Открывает Polar checkout в браузере и затем опрашивает
@@ -22,6 +25,7 @@ export function UpgradeButton({
   label?: string;
 }) {
   const { refresh, isPro } = useAuth();
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -65,13 +69,14 @@ export function UpgradeButton({
         boxShadow: "0 6px 18px rgba(47,107,255,0.22)",
       }}
     >
-      {busy ? "Ждём оплату…" : label ?? "Оформить PRO"}
+      {busy ? t("pro.busy") : label ?? t("pro.upgrade")}
     </button>
   );
 }
 
 /** Кнопка управления подпиской (Polar customer portal). */
 export function ManageSubscriptionButton() {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   return (
     <button
@@ -94,7 +99,7 @@ export function ManageSubscriptionButton() {
         cursor: "pointer",
       }}
     >
-      Управлять подпиской
+      {t("pro.manage")}
     </button>
   );
 }
@@ -105,6 +110,7 @@ export function ManageSubscriptionButton() {
  */
 export function PromoCodeField() {
   const { refresh } = useAuth();
+  const t = useT();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -116,10 +122,11 @@ export function PromoCodeField() {
     setMsg(null);
     const res = await redeemTrial(value);
     if (res.ok) {
-      setMsg({ kind: "ok", text: "Промокод активирован — открываем PRO…" });
+      setMsg({ kind: "ok", text: t("promo.success") });
       await refresh();
     } else {
-      setMsg({ kind: "err", text: res.error });
+      const key = KNOWN_PROMO_ERRORS.includes(res.code) ? res.code : "server";
+      setMsg({ kind: "err", text: t(`promo.err.${key}`) });
       setBusy(false);
     }
   };
@@ -133,9 +140,9 @@ export function PromoCodeField() {
           onKeyDown={(e) => {
             if (e.key === "Enter") submit();
           }}
-          placeholder="Промокод"
+          placeholder={t("promo.placeholder")}
           disabled={busy}
-          aria-label="Промокод"
+          aria-label={t("promo.placeholder")}
           style={{
             padding: "9px 12px",
             borderRadius: 8,
@@ -159,7 +166,7 @@ export function PromoCodeField() {
             opacity: busy || !code.trim() ? 0.6 : 1,
           }}
         >
-          {busy ? "Активируем…" : "Активировать"}
+          {busy ? t("promo.activating") : t("promo.activate")}
         </button>
       </div>
       {msg && (
@@ -190,6 +197,7 @@ export function ProGate({
   feature?: string;
 }) {
   const { isPro } = useAuth();
+  const t = useT();
   if (isPro) return <>{children}</>;
 
   return (
@@ -205,18 +213,18 @@ export function ProGate({
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 6 }}>
-        {feature ? `${feature} — функция PRO` : "Функция PRO"}
+        {feature ? t("pro.featureLocked", { feature }) : t("pro.featureLockedGeneric")}
       </div>
       <p style={{ color: "#5A6472", fontSize: 14, marginBottom: 14 }}>
-        Оформите подписку Siplinx AI PRO, чтобы разблокировать.
+        {t("pro.unlock")}
       </p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
         {/* Сейчас в Polar заведён только месячный план. Кнопку «PRO / год»
             вернуть, когда появится годовой продукт (POLAR_PRODUCT_ID_YEARLY). */}
-        <UpgradeButton plan="monthly" label="Оформить PRO" />
+        <UpgradeButton plan="monthly" label={t("pro.upgrade")} />
       </div>
       <div style={{ marginTop: 12, fontSize: 12, color: "#5A6472" }}>
-        или активируйте промокод на бесплатный период
+        {t("pro.orPromoLong")}
       </div>
       <PromoCodeField />
     </div>

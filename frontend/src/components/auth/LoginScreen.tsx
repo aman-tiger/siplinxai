@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useT } from "@/contexts/I18nContext";
 
 /**
  * Экран входа. Показывается, пока пользователь не авторизован.
@@ -13,6 +14,7 @@ const BRAND_GRADIENT = "linear-gradient(135deg, #2F6BFF 0%, #7A3BE0 100%)";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const t = useT();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,8 +58,7 @@ export default function LoginScreen() {
           </span>
         </h1>
         <p style={{ color: "#5A6472", marginBottom: 28, lineHeight: 1.5 }}>
-          Войдите, чтобы пользоваться приложением. Запись и транскрипция
-          по-прежнему выполняются локально на вашем устройстве.
+          {t("login.subtitle")}
         </p>
 
         <button
@@ -99,7 +100,7 @@ export default function LoginScreen() {
               <path fill="#34A853" d="M24 47c6.1 0 11.3-2 15-5.5l-7.3-5.7c-2 1.4-4.7 2.3-7.7 2.3-6.3 0-11.7-3.7-13.6-9l-7.9 6.1C6.4 42.6 14.6 47 24 47z"/>
             </svg>
           </span>
-          {busy ? "Открываем браузер…" : "Войти через Google"}
+          {busy ? t("login.opening") : t("login.signIn")}
         </button>
 
         {error && (
@@ -107,7 +108,7 @@ export default function LoginScreen() {
         )}
 
         <p style={{ color: "#94A0B0", marginTop: 24, fontSize: 12 }}>
-          Вход откроется в системном браузере. После входа вернитесь в приложение.
+          {t("login.hint")}
         </p>
       </div>
     </div>

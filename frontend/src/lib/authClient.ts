@@ -188,9 +188,9 @@ export async function openPortal(): Promise<void> {
  */
 export async function redeemTrial(
   code: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; code: string }> {
   const token = await getToken();
-  if (!token) return { ok: false, error: "Не авторизованы" };
+  if (!token) return { ok: false, code: "unauthorized" };
   try {
     const res = await fetch(`${AUTH_URL}/api/trial/redeem`, {
       method: "POST",
@@ -199,14 +199,10 @@ export async function redeemTrial(
     });
     if (res.ok) return { ok: true };
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    const messages: Record<string, string> = {
-      invalid_code: "Неверный промокод",
-      already_pro: "У вас уже активна PRO-подписка",
-      unauthorized: "Сессия истекла, войдите заново",
-    };
-    return { ok: false, error: messages[data.error ?? ""] ?? `Ошибка сервера (${res.status})` };
+    // Возвращаем КОД ошибки; человекочитаемый текст подбирает UI через i18n.
+    return { ok: false, code: data.error || "server" };
   } catch {
-    return { ok: false, error: "Нет связи с сервером" };
+    return { ok: false, code: "network" };
   }
 }
 

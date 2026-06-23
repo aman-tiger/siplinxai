@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { useT } from "@/contexts/I18nContext";
 import { UpgradeButton, PromoCodeField } from "./ProGate";
 
 /**
@@ -13,6 +14,7 @@ const BRAND_GRADIENT = "linear-gradient(135deg, #2F6BFF 0%, #7A3BE0 100%)";
 
 export default function PaywallScreen() {
   const { user, logout, refresh } = useAuth();
+  const t = useT();
 
   return (
     <div
@@ -42,20 +44,19 @@ export default function PaywallScreen() {
           </span>
         </h1>
         <p style={{ color: "#5A6472", marginBottom: 24, lineHeight: 1.5 }}>
-          Чтобы пользоваться приложением, оформите подписку PRO или активируйте
-          промокод на бесплатный период.
+          {t("paywall.subtitle")}
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-          <UpgradeButton plan="trial3" label="3 дня бесплатно, потом $5/мес" />
-          <UpgradeButton plan="monthly" label="Оформить PRO — $9/мес" />
+          <UpgradeButton plan="trial3" label={t("paywall.trial3")} />
+          <UpgradeButton plan="monthly" label={t("paywall.monthly")} />
         </div>
         <div style={{ marginTop: 8, fontSize: 12, color: "#94A0B0" }}>
-          Для триала на 3 дня нужна карта. Списание начнётся после триала, отменить можно в любой момент.
+          {t("paywall.cardNote")}
         </div>
 
         <div style={{ marginTop: 14, fontSize: 12, color: "#5A6472" }}>
-          или активируйте промокод
+          {t("paywall.orPromo")}
         </div>
         <PromoCodeField />
 
@@ -71,7 +72,7 @@ export default function PaywallScreen() {
               textDecoration: "underline",
             }}
           >
-            Я уже оплатил — обновить
+            {t("paywall.refresh")}
           </button>
           {user && (
             <>
@@ -87,7 +88,7 @@ export default function PaywallScreen() {
                   textDecoration: "underline",
                 }}
               >
-                Выйти ({user.email})
+                {t("paywall.logout", { email: user.email })}
               </button>
             </>
           )}

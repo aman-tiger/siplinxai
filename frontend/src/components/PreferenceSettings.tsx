@@ -7,6 +7,7 @@ import { invoke } from "@tauri-apps/api/core"
 import Analytics from "@/lib/analytics"
 import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch"
 import { useConfig, NotificationSettings } from "@/contexts/ConfigContext"
+import { useI18n } from "@/contexts/I18nContext"
 
 export function PreferenceSettings() {
   const {
@@ -16,6 +17,7 @@ export function PreferenceSettings() {
     loadPreferences,
     updateNotificationSettings
   } = useConfig();
+  const { lang, setLang, t } = useI18n();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -148,6 +150,25 @@ export function PreferenceSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Language Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t("lang.label")}</h3>
+            <p className="text-sm text-gray-600">Русский / English</p>
+          </div>
+          <select
+            value={lang}
+            onChange={(e) => setLang(e.target.value === "ru" ? "ru" : "en")}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white"
+            aria-label={t("lang.label")}
+          >
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+      </div>
+
       {/* Notifications Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center justify-between">
