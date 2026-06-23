@@ -1,7 +1,8 @@
 'use client';
 
 import { Block } from '@/types';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
+import { useT } from '@/contexts/I18nContext';
 
 interface BlockProps {
   block: Block;
@@ -26,37 +27,6 @@ interface CommandOption {
   description: string;
 }
 
-const COMMANDS: CommandOption[] = [
-  { 
-    id: 'text', 
-    label: 'Text', 
-    type: 'text', 
-    icon: 'T', 
-    description: 'Just start writing with plain text' 
-  },
-  { 
-    id: 'bullet', 
-    label: 'Bullet List', 
-    type: 'bullet', 
-    icon: '•', 
-    description: 'Create a bulleted list' 
-  },
-  { 
-    id: 'h1', 
-    label: 'Heading 1', 
-    type: 'heading1', 
-    icon: 'H1', 
-    description: 'Big section heading' 
-  },
-  { 
-    id: 'h2', 
-    label: 'Heading 2', 
-    type: 'heading2', 
-    icon: 'H2', 
-    description: 'Medium section heading' 
-  },
-];
-
 export const BlockComponent: React.FC<BlockProps> = ({
   block,
   isSelected,
@@ -71,6 +41,37 @@ export const BlockComponent: React.FC<BlockProps> = ({
   onNavigate,
   onCreateNewBlock,
 }) => {
+  const t = useT();
+  const COMMANDS: CommandOption[] = useMemo(() => [
+    {
+      id: 'text',
+      label: t('misc.block.text'),
+      type: 'text',
+      icon: 'T',
+      description: t('misc.block.textDesc')
+    },
+    {
+      id: 'bullet',
+      label: t('misc.block.bullet'),
+      type: 'bullet',
+      icon: '•',
+      description: t('misc.block.bulletDesc')
+    },
+    {
+      id: 'h1',
+      label: t('misc.block.heading1'),
+      type: 'heading1',
+      icon: 'H1',
+      description: t('misc.block.heading1Desc')
+    },
+    {
+      id: 'h2',
+      label: t('misc.block.heading2'),
+      type: 'heading2',
+      icon: 'H2',
+      description: t('misc.block.heading2Desc')
+    },
+  ], [t]);
   const [showCommands, setShowCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -250,7 +251,7 @@ export const BlockComponent: React.FC<BlockProps> = ({
             ${block.type === 'heading1' ? 'text-xl font-bold' : ''}
             ${block.type === 'heading2' ? 'text-lg font-semibold' : ''}
           `}
-          placeholder="Type '/' for commands..."
+          placeholder={t('misc.block.commandPlaceholder')}
         />
 
         {showCommands && (

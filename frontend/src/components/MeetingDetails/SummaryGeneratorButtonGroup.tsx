@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 import { isOllamaNotInstalledError } from '@/lib/utils';
 import { BuiltInModelInfo } from '@/lib/builtin-ai';
+import { useT } from '@/contexts/I18nContext';
 
 interface SummaryGeneratorButtonGroupProps {
   modelConfig: ModelConfig;
@@ -55,6 +56,7 @@ export function SummaryGeneratorButtonGroup({
   isModelConfigLoading = false,
   onOpenModelSettings
 }: SummaryGeneratorButtonGroupProps) {
+  const t = useT();
   const [isCheckingModels, setIsCheckingModels] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
 
@@ -86,8 +88,8 @@ export function SummaryGeneratorButtonGroup({
 
       // Check if specific model is configured
       if (!selectedModel) {
-        toast.error('No built-in AI model selected', {
-          description: 'Please select a model in settings',
+        toast.error(t('misc.summary.noBuiltInModel'), {
+          description: t('misc.summary.noBuiltInModelDesc'),
           duration: 5000,
         });
         setSettingsDialogOpen(true);
@@ -112,8 +114,8 @@ export function SummaryGeneratorButtonGroup({
       });
 
       if (!modelInfo) {
-        toast.error('Model not found', {
-          description: `Could not find information for model: ${selectedModel}`,
+        toast.error(t('misc.summary.modelNotFound'), {
+          description: t('misc.summary.modelNotFoundDesc', { model: selectedModel }),
           duration: 5000,
         });
         setSettingsDialogOpen(true);
@@ -124,16 +126,16 @@ export function SummaryGeneratorButtonGroup({
       const status = modelInfo.status;
 
       if (status.type === 'downloading') {
-        toast.info('Model download in progress', {
-          description: `${selectedModel} is downloading (${status.progress}%). Please wait until download completes.`,
+        toast.info(t('misc.summary.downloadInProgress'), {
+          description: t('misc.summary.downloadInProgressDesc', { model: selectedModel, progress: status.progress }),
           duration: 5000,
         });
         return;
       }
 
       if (status.type === 'not_downloaded') {
-        toast.error('Model not downloaded', {
-          description: `${selectedModel} needs to be downloaded before use. Opening model settings...`,
+        toast.error(t('misc.summary.modelNotDownloaded'), {
+          description: t('misc.summary.modelNotDownloadedDesc', { model: selectedModel }),
           duration: 5000,
         });
         setSettingsDialogOpen(true);
@@ -141,8 +143,8 @@ export function SummaryGeneratorButtonGroup({
       }
 
       if (status.type === 'corrupted') {
-        toast.error('Model file corrupted', {
-          description: `${selectedModel} file is corrupted. Please delete and re-download.`,
+        toast.error(t('misc.summary.modelCorrupted'), {
+          description: t('misc.summary.modelCorruptedDesc', { model: selectedModel }),
           duration: 7000,
         });
         setSettingsDialogOpen(true);
@@ -150,8 +152,8 @@ export function SummaryGeneratorButtonGroup({
       }
 
       if (status.type === 'error') {
-        toast.error('Model error', {
-          description: status.Error || 'An error occurred with the model',
+        toast.error(t('misc.summary.modelError'), {
+          description: status.Error || t('misc.summary.modelErrorDesc'),
           duration: 5000,
         });
         setSettingsDialogOpen(true);
@@ -159,15 +161,15 @@ export function SummaryGeneratorButtonGroup({
       }
 
       // Fallback
-      toast.error('Model not available', {
-        description: 'The selected model is not ready for use',
+      toast.error(t('misc.summary.modelNotAvailable'), {
+        description: t('misc.summary.modelNotAvailableDesc'),
         duration: 5000,
       });
       setSettingsDialogOpen(true);
 
     } catch (error) {
       console.error('Error checking built-in AI models:', error);
-      toast.error('Failed to check model status', {
+      toast.error(t('misc.summary.checkModelFailed'), {
         description: error instanceof Error ? error.message : String(error),
         duration: 5000,
       });
@@ -197,7 +199,7 @@ export function SummaryGeneratorButtonGroup({
       if (!models || models.length === 0) {
         // No models available, show message and open settings
         toast.error(
-          'No Ollama models found. Please download gemma2:2b from Model Settings.',
+          t('misc.summary.noOllamaModels'),
           { duration: 5000 }
         );
         setSettingsDialogOpen(true);
@@ -213,12 +215,12 @@ export function SummaryGeneratorButtonGroup({
       if (isOllamaNotInstalledError(errorMessage)) {
         // Ollama is not installed - show specific message with download link
         toast.error(
-          'Ollama is not installed',
+          t('misc.summary.ollamaNotInstalled'),
           {
-            description: 'Please download and install Ollama to use local models.',
+            description: t('misc.summary.ollamaNotInstalledDesc'),
             duration: 7000,
             action: {
-              label: 'Download',
+              label: t('misc.summary.download'),
               onClick: () => invoke('open_external_url', { url: 'https://ollama.com/download' })
             }
           }
@@ -226,7 +228,7 @@ export function SummaryGeneratorButtonGroup({
       } else {
         // Other error - generic message
         toast.error(
-          'Failed to check Ollama models. Please check if Ollama is running and download a model.',
+          t('misc.summary.checkOllamaFailed'),
           { duration: 5000 }
         );
       }
@@ -250,10 +252,10 @@ export function SummaryGeneratorButtonGroup({
             Analytics.trackButtonClick('stop_summary_generation', 'meeting_details');
             onStopGeneration();
           }}
-          title="Stop summary generation"
+          title={t('misc.summary.stopTitle')}
         >
           <Square className="xl:mr-2" size={18} fill="currentColor" />
-          <span className="hidden lg:inline xl:inline">Stop</span>
+          <span className="hidden lg:inline xl:inline">{t('misc.summary.stop')}</span>
         </Button>
       ) : (
         <Button
@@ -267,21 +269,21 @@ export function SummaryGeneratorButtonGroup({
           disabled={isCheckingModels || isModelConfigLoading}
           title={
             isModelConfigLoading
-              ? 'Loading model configuration...'
+              ? t('misc.summary.loadingConfigTitle')
               : isCheckingModels
-                ? 'Checking models...'
-                : 'Generate AI Summary'
+                ? t('misc.summary.checkingModelsTitle')
+                : t('misc.summary.generateTitle')
           }
         >
           {isCheckingModels || isModelConfigLoading ? (
             <>
               <Loader2 className="animate-spin xl:mr-2" size={18} />
-              <span className="hidden xl:inline">Processing...</span>
+              <span className="hidden xl:inline">{t('misc.summary.processing')}</span>
             </>
           ) : (
             <>
               <Sparkles className="xl:mr-2" size={18} />
-              <span className="hidden lg:inline xl:inline">Generate Summary</span>
+              <span className="hidden lg:inline xl:inline">{t('misc.summary.generate')}</span>
             </>
           )}
         </Button>
@@ -293,17 +295,17 @@ export function SummaryGeneratorButtonGroup({
           <Button
             variant="outline"
             size="sm"
-            title="Summary Settings"
+            title={t('misc.summary.settingsTitle')}
           >
             <Settings />
-            <span className="hidden lg:inline">AI Model</span>
+            <span className="hidden lg:inline">{t('misc.summary.aiModel')}</span>
           </Button>
         </DialogTrigger>
         <DialogContent
           aria-describedby={undefined}
         >
           <VisuallyHidden>
-            <DialogTitle>Model Settings</DialogTitle>
+            <DialogTitle>{t('misc.summary.modelSettings')}</DialogTitle>
           </VisuallyHidden>
           <ModelSettingsModal
             onSave={async (config) => {
@@ -324,10 +326,10 @@ export function SummaryGeneratorButtonGroup({
             <Button
               variant="outline"
               size="sm"
-              title="Select summary template"
+              title={t('misc.summary.selectTemplateTitle')}
             >
               <FileText />
-              <span className="hidden lg:inline">Template</span>
+              <span className="hidden lg:inline">{t('misc.summary.template')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

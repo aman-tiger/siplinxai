@@ -10,6 +10,7 @@ import { usePermissionCheck } from '@/hooks/usePermissionCheck';
 import { ModalType } from '@/hooks/useModalState';
 import { useIsLinux } from '@/hooks/usePlatform';
 import { useMemo } from 'react';
+import { useT } from '@/contexts/I18nContext';
 
 /**
  * TranscriptPanel Component
@@ -36,6 +37,7 @@ export function TranscriptPanel({
   const { isRecording, isPaused } = useRecordingState();
   const { checkPermissions, isChecking, hasSystemAudio, hasMicrophone } = usePermissionCheck();
   const isLinux = useIsLinux();
+  const t = useT();
 
   // Convert transcripts to segments for virtualized view
   const segments = useMemo(() =>
@@ -62,11 +64,11 @@ export function TranscriptPanel({
                     variant="outline"
                     size="sm"
                     onClick={copyTranscript}
-                    title="Copy Transcript"
+                    title={t('recording.copyTranscript')}
                   >
                     <Copy />
                     <span className='hidden md:inline'>
-                      Copy
+                      {t('recording.copy')}
                     </span>
                   </Button>
                 )}
@@ -75,11 +77,11 @@ export function TranscriptPanel({
                     variant="outline"
                     size="sm"
                     onClick={() => showModal('languageSettings')}
-                    title="Language"
+                    title={t('recording.language')}
                   >
                     <GlobeIcon />
                     <span className='hidden md:inline'>
-                      Language
+                      {t('recording.language')}
                     </span>
                   </Button>
                 }

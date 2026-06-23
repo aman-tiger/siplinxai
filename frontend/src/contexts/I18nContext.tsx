@@ -22,7 +22,7 @@ const STORAGE_KEY = "siplinx.lang";
 type I18nValue = {
   lang: Lang;
   setLang: (l: Lang) => void;
-  t: (key: string, vars?: Record<string, string | number>) => string;
+  t: (key: string, vars?: Record<string, string | number | null | undefined>) => string;
 };
 
 const I18nContext = createContext<I18nValue | null>(null);
@@ -73,13 +73,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: string, vars?: Record<string, string | number>) => {
+    (key: string, vars?: Record<string, string | number | null | undefined>) => {
       const dict = translations[lang] ?? translations.en;
       let s = dict[key] ?? translations.en[key] ?? key;
       if (vars) {
         for (const [k, v] of Object.entries(vars)) {
           // split/join вместо RegExp — без экранирования и без риска с регэкспами.
-          s = s.split(`{${k}}`).join(String(v));
+          s = s.split(`{${k}}`).join(String(v ?? ""));
         }
       }
       return s;

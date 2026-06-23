@@ -5,6 +5,7 @@ import { Mic, Sparkles, Check, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useT } from '@/contexts/I18nContext';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -34,6 +35,7 @@ export function DownloadProgressStep() {
     completeOnboarding,
   } = useOnboarding();
 
+  const t = useT();
   const [recommendedModel, setRecommendedModel] = useState<string>('gemma3:1b');
   const [isMac, setIsMac] = useState(false);
 
@@ -87,11 +89,11 @@ export function DownloadProgressStep() {
       setParakeetState((prev) => ({
         ...prev,
         status: 'error',
-        error: error instanceof Error ? error.message : 'Retry failed',
+        error: error instanceof Error ? error.message : t('onboarding.download.error.retryFailed'),
       }));
 
-      toast.error('Download retry failed', {
-        description: 'Please check your connection and try again.',
+      toast.error(t('onboarding.download.toast.retryFailed.title'), {
+        description: t('onboarding.download.toast.retryFailed.body'),
       });
     } finally {
       // Allow retry again after 2 seconds
@@ -130,11 +132,11 @@ export function DownloadProgressStep() {
       setGemmaState((prev) => ({
         ...prev,
         status: 'error',
-        error: error instanceof Error ? error.message : 'Retry failed',
+        error: error instanceof Error ? error.message : t('onboarding.download.error.retryFailed'),
       }));
 
-      toast.error('Summary model download retry failed', {
-        description: 'Please check your connection and try again.',
+      toast.error(t('onboarding.download.toast.summaryRetryFailed.title'), {
+        description: t('onboarding.download.toast.summaryRetryFailed.body'),
       });
     } finally {
       // Allow retry again after 2 seconds
@@ -308,8 +310,8 @@ export function DownloadProgressStep() {
           progress: 100,
         }));
       } else if (!actuallyAvailable && parakeetState.status === 'error') {
-        toast.error('Transcription engine required', {
-          description: 'Please retry the download before continuing.',
+        toast.error(t('onboarding.download.toast.engineRequired.title'), {
+          description: t('onboarding.download.toast.engineRequired.body'),
         });
         return;
       }
@@ -323,8 +325,8 @@ export function DownloadProgressStep() {
 
     // Show toast if downloads still in progress
     if (!downloadsComplete) {
-      toast.info('Downloads will continue in the background', {
-        description: 'You can start using the app. Recording will be available once speech recognition is ready.',
+      toast.info(t('onboarding.download.toast.background.title'), {
+        description: t('onboarding.download.toast.background.body'),
         duration: 5000,
       });
     }
@@ -344,8 +346,8 @@ export function DownloadProgressStep() {
         window.location.reload();
       } catch (error) {
         console.error('Failed to complete onboarding:', error);
-        toast.error('Failed to complete setup', {
-          description: 'Please try again.',
+        toast.error(t('onboarding.download.toast.setupFailed.title'), {
+          description: t('onboarding.download.toast.setupFailed.body'),
         });
         setIsCompleting(false);
       }
@@ -354,6 +356,7 @@ export function DownloadProgressStep() {
 
   const renderDownloadCard = (
     title: string,
+    displayTitle: string,
     icon: React.ReactNode,
     state: DownloadState,
     modelSize: string
@@ -365,13 +368,13 @@ export function DownloadProgressStep() {
             {icon}
           </div>
           <div>
-            <h3 className="font-medium text-gray-900">{title}</h3>
+            <h3 className="font-medium text-gray-900">{displayTitle}</h3>
             <p className="text-sm text-gray-500">{modelSize}</p>
           </div>
         </div>
         <div>
           {state.status === 'waiting' && (
-            <span className="text-sm text-gray-500">Waiting...</span>
+            <span className="text-sm text-gray-500">{t('onboarding.download.status.waiting')}</span>
           )}
           {state.status === 'downloading' && (
             <Loader2 className="w-5 h-5 text-gray-700 animate-spin" />
@@ -382,7 +385,7 @@ export function DownloadProgressStep() {
             </div>
           )}
           {state.status === 'error' && (
-            <span className="text-sm text-red-500">Failed</span>
+            <span className="text-sm text-red-500">{t('onboarding.download.status.failed')}</span>
           )}
         </div>
       </div>
@@ -398,12 +401,15 @@ export function DownloadProgressStep() {
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">
-              {state.downloadedMb.toFixed(1)} MB / {state.totalMb.toFixed(1)} MB
+              {t('onboarding.download.progress', {
+                downloaded: state.downloadedMb.toFixed(1),
+                total: state.totalMb.toFixed(1),
+              })}
             </span>
             <div className="flex items-center gap-2">
               {state.speedMbps > 0 && (
                 <span className="text-gray-500">
-                  {state.speedMbps.toFixed(1)} MB/s
+                  {t('onboarding.download.speed', { speed: state.speedMbps.toFixed(1) })}
                 </span>
               )}
               <span className="font-semibold text-gray-900">
@@ -416,7 +422,7 @@ export function DownloadProgressStep() {
 
       {state.status === 'error' && state.error && (
         <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600 font-medium">Download Error</p>
+          <p className="text-sm text-red-600 font-medium">{t('onboarding.download.error.title')}</p>
           <p className="text-xs text-red-500 mt-1">{state.error}</p>
           {(title === 'Transcription Engine' || title === 'Summary Engine') && (
             <button
@@ -427,7 +433,7 @@ export function DownloadProgressStep() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Try Again
+              {t('onboarding.download.tryAgain')}
             </button>
           )}
         </div>
@@ -437,8 +443,8 @@ export function DownloadProgressStep() {
 
   return (
     <OnboardingContainer
-      title="Getting things ready"
-      description="You can start using Siplinx AI after downloading the Transcription Engine."
+      title={t('onboarding.download.title')}
+      description={t('onboarding.download.description')}
       step={3}
       totalSteps={isMac ? 4 : 3}
     >
@@ -447,6 +453,7 @@ export function DownloadProgressStep() {
         <div className="w-full max-w-lg space-y-4">
           {renderDownloadCard(
             'Transcription Engine',
+            t('onboarding.download.transcriptionEngine'),
             <Mic className="w-5 h-5 text-gray-600" />,
             parakeetState,
             '~670 MB'
@@ -454,6 +461,7 @@ export function DownloadProgressStep() {
 
           {renderDownloadCard(
             'Summary Engine',
+            t('onboarding.download.summaryEngine'),
             <Sparkles className="w-5 h-5 text-gray-600" />,
             gemmaState,
             recommendedModel === 'gemma3:4b' ? '~2.5 GB' : '~806 MB'
@@ -473,9 +481,9 @@ export function DownloadProgressStep() {
               <div className="flex items-start gap-3">
                 <Download className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium">You can continue while this finishes</p>
+                  <p className="font-medium">{t('onboarding.download.continueInfo.title')}</p>
                   <p className="text-gray-700 mt-1">
-                    Download will continue in the background.
+                    {t('onboarding.download.continueInfo.body')}
                   </p>
                 </div>
               </div>
@@ -493,7 +501,7 @@ export function DownloadProgressStep() {
             {(isCompleting || !parakeetDownloaded) ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
-              'Continue'
+              t('onboarding.download.continue')
             )}
           </Button>
         </div>
