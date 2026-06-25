@@ -27,21 +27,24 @@ export async function GET(req: NextRequest) {
 
   const plan = new URL(req.url).searchParams.get("plan") ?? "monthly";
 
-  // Выбор продукта + опциональный триал по плану.
-  // trial3 — 3-дневный триал Polar с обязательной картой на продукте $5/мес.
-  const TRIAL3_DAYS = Number(process.env.TRIAL3_DAYS ?? "3") || 3;
+  // Выбор продукта + опциональный триал по плану. Два тарифа:
+  //  - monthly: $2/неделю, БЕЗ триала, списание сразу (POLAR_PRODUCT_ID_MONTHLY).
+  //  - trial7:  7-дневный триал Polar с обязательной картой, затем $4/неделю
+  //             (POLAR_PRODUCT_ID_TRIAL7). NB: это ПЛАТНЫЙ триал через Polar,
+  //             не путать с бесплатным промокодом "Trial7" из /api/trial/redeem.
+  const TRIAL_DAYS = Number(process.env.TRIAL_DAYS ?? "7") || 7;
   let productId: string | undefined;
   let trial: { interval: "day"; count: number } | null = null;
   if (plan === "yearly") {
     productId = process.env.POLAR_PRODUCT_ID_YEARLY;
-  } else if (plan === "trial3") {
-    productId = process.env.POLAR_PRODUCT_ID_TRIAL5;
-    trial = { interval: "day", count: TRIAL3_DAYS };
+  } else if (plan === "trial7") {
+    productId = process.env.POLAR_PRODUCT_ID_TRIAL7;
+    trial = { interval: "day", count: TRIAL_DAYS };
   } else {
     productId = process.env.POLAR_PRODUCT_ID_MONTHLY;
   }
 
-  // План недоступен, если для него не задан ID продукта (напр. trial3/годовой не заведён).
+  // План недоступен, если для него не задан ID продукта (напр. trial7/годовой не заведён).
   if (!productId) {
     return NextResponse.json({ error: `plan "${plan}" unavailable` }, { status: 400 });
   }

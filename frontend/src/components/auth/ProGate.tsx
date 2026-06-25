@@ -22,7 +22,7 @@ export function UpgradeButton({
   plan = "monthly",
   label,
 }: {
-  plan?: "monthly" | "yearly" | "trial3";
+  plan?: "monthly" | "yearly" | "trial7";
   label?: string;
 }) {
   const { refresh, isPro } = useAuth();

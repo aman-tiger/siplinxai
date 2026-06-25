@@ -170,9 +170,13 @@ async function openAuthedUrl(path: string): Promise<void> {
   await openUrl(url);
 }
 
-/** Открыть Polar checkout в браузере. trial3 — 3-дневный триал с картой ($5/мес). */
+/**
+ * Открыть Polar checkout в браузере.
+ *  - monthly: $2/неделю, без триала.
+ *  - trial7:  7 дней бесплатно, затем $4/неделю (нужна карта).
+ */
 export async function openCheckout(
-  plan: "monthly" | "yearly" | "trial3" = "monthly"
+  plan: "monthly" | "yearly" | "trial7" = "monthly"
 ): Promise<void> {
   await openAuthedUrl(`/api/billing/checkout?plan=${plan}`);
 }

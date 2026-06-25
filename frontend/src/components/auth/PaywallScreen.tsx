@@ -54,8 +54,8 @@ export default function PaywallScreen() {
         </p>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-          <UpgradeButton plan="trial3" label={t("paywall.trial3")} />
           <UpgradeButton plan="monthly" label={t("paywall.monthly")} />
+          <UpgradeButton plan="trial7" label={t("paywall.trial7")} />
         </div>
         <div style={{ marginTop: 8, fontSize: 12, color: "#94A0B0" }}>
           {t("paywall.cardNote")}

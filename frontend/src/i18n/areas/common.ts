@@ -18,10 +18,10 @@ export const en: Dict = {
   // Пейволл
   "paywall.subtitle":
     "To use the app, subscribe to PRO or activate a promo code for a free period.",
-  "paywall.trial3": "3 days free, then $5/mo",
-  "paywall.monthly": "Get PRO — $9/mo",
+  "paywall.trial7": "7 days free, then $4/week",
+  "paywall.monthly": "Get PRO for $2/week",
   "paywall.cardNote":
-    "The 3-day trial requires a card. Billing starts after the trial; cancel anytime.",
+    "The 7-day trial requires a card. Billing starts after the trial; cancel anytime.",
   "paywall.orPromo": "or activate a promo code",
   "paywall.refresh": "Already paid — refresh",
   "paywall.logout": "Sign out ({email})",
@@ -71,10 +71,10 @@ export const ru: Dict = {
 
   "paywall.subtitle":
     "Чтобы пользоваться приложением, оформите подписку PRO или активируйте промокод на бесплатный период.",
-  "paywall.trial3": "3 дня бесплатно, потом $5/мес",
-  "paywall.monthly": "Оформить PRO — $9/мес",
+  "paywall.trial7": "7 дней бесплатно, потом $4/неделю",
+  "paywall.monthly": "Оформить PRO за $2/неделю",
   "paywall.cardNote":
-    "Для триала на 3 дня нужна карта. Списание начнётся после триала, отменить можно в любой момент.",
+    "Для триала на 7 дней нужна карта. Списание начнётся после триала, отменить можно в любой момент.",
   "paywall.orPromo": "или активируйте промокод",
   "paywall.refresh": "Я уже оплатил — обновить",
   "paywall.logout": "Выйти ({email})",
