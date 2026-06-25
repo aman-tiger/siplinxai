@@ -21,12 +21,13 @@ export const en: Dict = {
   "onboarding.setup.summarization.tooltip":
     "You can also select external AI providers like OpenAI, Claude, or Ollama for summary generation in settings.",
   "onboarding.setup.cta": "Let's Go",
-  "onboarding.setup.reportIssues": "Report issues on GitHub",
 
   // Download progress step
-  "onboarding.download.title": "Getting things ready",
+  "onboarding.download.title": "Getting your AI ready…",
   "onboarding.download.description":
-    "You can start using Siplinx AI after downloading the Transcription Engine.",
+    "Your AI models are loading in the background. You can start exploring Siplinx AI right now.",
+  "onboarding.download.allSet": "You're all set",
+  "onboarding.download.allSetBody": "AI is ready. Enjoy Siplinx AI!",
   "onboarding.download.transcriptionEngine": "Transcription Engine",
   "onboarding.download.summaryEngine": "Summary Engine",
   "onboarding.download.status.waiting": "Waiting...",
@@ -100,12 +101,13 @@ export const ru: Dict = {
   "onboarding.setup.summarization.tooltip":
     "В настройках вы также можете выбрать внешних ИИ-провайдеров, например OpenAI, Claude или Ollama, для генерации резюме.",
   "onboarding.setup.cta": "Поехали",
-  "onboarding.setup.reportIssues": "Сообщить о проблеме на GitHub",
 
   // Download progress step
-  "onboarding.download.title": "Готовим всё к работе",
+  "onboarding.download.title": "Готовим ИИ в фоне…",
   "onboarding.download.description":
-    "Вы можете начать пользоваться Siplinx AI после загрузки движка транскрипции.",
+    "Модели загружаются в фоне. Вы уже можете начать работу с Siplinx AI.",
+  "onboarding.download.allSet": "Всё готово",
+  "onboarding.download.allSetBody": "ИИ готов к работе. Наслаждайтесь Siplinx AI!",
   "onboarding.download.transcriptionEngine": "Движок транскрипции",
   "onboarding.download.summaryEngine": "Движок резюмирования",
   "onboarding.download.status.waiting": "Ожидание...",

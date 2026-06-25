@@ -6,6 +6,7 @@ import { OnboardingContainer } from '../OnboardingContainer';
 import { PermissionRow } from '../shared';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useT } from '@/contexts/I18nContext';
+import { Analytics } from '@/lib/analytics';
 
 export function PermissionsStep() {
   const { setPermissionStatus, setPermissionsSkipped, permissions, completeOnboarding } = useOnboarding();
@@ -98,6 +99,7 @@ export function PermissionsStep() {
   const handleFinish = async () => {
     try {
       await completeOnboarding();
+      Analytics.track('onboarding_completed');
       window.location.reload();
     } catch (error) {
       console.error('Failed to complete onboarding:', error);

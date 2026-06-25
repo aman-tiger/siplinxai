@@ -114,16 +114,6 @@ export function SetupOverviewStep() {
           >
             {t('onboarding.setup.cta')}
           </Button>
-          <div className="text-center">
-            <a
-              href="https://github.com/Zackriya-Solutions/meeting-minutes"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-gray-600 hover:underline"
-            >
-              {t('onboarding.setup.reportIssues')}
-            </a>
-          </div>
         </div>
       </div>
     </OnboardingContainer>

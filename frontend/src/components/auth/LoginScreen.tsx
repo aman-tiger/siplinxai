@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/contexts/I18nContext";
+import { Analytics } from "@/lib/analytics";
 
 /**
  * Экран входа. Показывается, пока пользователь не авторизован.
@@ -21,10 +22,14 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError(null);
     setBusy(true);
+    Analytics.track('login_initiated');
     try {
       await login();
+      Analytics.track('login_completed');
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      Analytics.track('login_failed', { error: msg });
     } finally {
       setBusy(false);
     }

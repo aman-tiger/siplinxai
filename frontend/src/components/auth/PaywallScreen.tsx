@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/contexts/I18nContext";
 import { UpgradeButton, PromoCodeField } from "./ProGate";
+import { Analytics } from "@/lib/analytics";
 
 /**
  * Экран пейволла. Показывается после входа, если у пользователя НЕТ активной
@@ -15,6 +17,10 @@ const BRAND_GRADIENT = "linear-gradient(135deg, #2F6BFF 0%, #7A3BE0 100%)";
 export default function PaywallScreen() {
   const { user, logout, refresh } = useAuth();
   const t = useT();
+
+  useEffect(() => {
+    Analytics.track('paywall_viewed');
+  }, []);
 
   return (
     <div

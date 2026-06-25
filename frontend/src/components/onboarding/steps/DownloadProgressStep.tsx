@@ -8,6 +8,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useT } from '@/contexts/I18nContext';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Analytics } from '@/lib/analytics';
 
 const PARAKEET_MODEL = 'parakeet-tdt-0.6b-v3-int8';
 
@@ -33,6 +34,7 @@ export function DownloadProgressStep() {
     setSummaryModelDownloaded,
     startBackgroundDownloads,
     completeOnboarding,
+    isBackgroundDownloading,
   } = useOnboarding();
 
   const t = useT();
@@ -276,73 +278,41 @@ export function DownloadProgressStep() {
   }, [selectedSummaryModel]);
 
   const startDownloads = async () => {
-    // Always download both Parakeet and Gemma (system-recommended)
-    if (!parakeetDownloaded || !summaryModelDownloaded) {
-      try {
-        if (!parakeetDownloaded) {
-          setParakeetState((prev) => ({ ...prev, status: 'downloading' }));
-        }
-        if (!summaryModelDownloaded) {
-          setGemmaState((prev) => ({ ...prev, status: 'downloading' }));
-        }
-        await startBackgroundDownloads(true);  // Always download both
-      } catch (error) {
-        console.error('Failed to start downloads:', error);
-        if (!parakeetDownloaded) {
-          setParakeetState((prev) => ({ ...prev, status: 'error', error: String(error) }));
-        }
-      }
+    // Downloads may already be running from OnboardingFlow mount — skip if so.
+    if (isBackgroundDownloading) return;
+    if (parakeetDownloaded && summaryModelDownloaded) return;
+    try {
+      await startBackgroundDownloads(true);
+    } catch (error) {
+      console.error('Failed to start downloads:', error);
     }
   };
 
   const handleContinue = async () => {
-    // Verify actual model availability (catches state drift)
-    try {
-      await invoke('parakeet_init');
-      const actuallyAvailable = await invoke<boolean>('parakeet_has_available_models');
-
-      if (actuallyAvailable && !parakeetDownloaded) {
-        console.log('[DownloadProgressStep] Model available but state not updated');
-        setParakeetDownloaded(true);
-        setParakeetState((prev) => ({
-          ...prev,
-          status: 'completed',
-          progress: 100,
-        }));
-      } else if (!actuallyAvailable && parakeetState.status === 'error') {
-        toast.error(t('onboarding.download.toast.engineRequired.title'), {
-          description: t('onboarding.download.toast.engineRequired.body'),
-        });
-        return;
+    // Downloads continue in background regardless of current state.
+    // Only block if parakeet had an error and nothing was ever downloaded.
+    if (parakeetState.status === 'error') {
+      try {
+        const actuallyAvailable = await invoke<boolean>('parakeet_has_available_models');
+        if (!actuallyAvailable) {
+          toast.error(t('onboarding.download.toast.engineRequired.title'), {
+            description: t('onboarding.download.toast.engineRequired.body'),
+          });
+          return;
+        }
+      } catch {
+        // Can't verify — allow user through anyway
       }
-    } catch (error) {
-      console.warn('[DownloadProgressStep] Failed to verify model:', error);
-    }
-
-    // Check if downloads are complete for toast notification
-    const downloadsComplete = parakeetState.status === 'completed' &&
-      gemmaState.status === 'completed';
-
-    // Show toast if downloads still in progress
-    if (!downloadsComplete) {
-      toast.info(t('onboarding.download.toast.background.title'), {
-        description: t('onboarding.download.toast.background.body'),
-        duration: 5000,
-      });
     }
 
     if (isMac) {
-      // macOS: Go to Permissions step (will complete after permissions granted)
       goNext();
     } else {
-      // Non-macOS: Complete onboarding immediately (downloads continue in background)
       setIsCompleting(true);
       try {
         await completeOnboarding();
-
-        // Small delay to ensure state is saved before reload
+        Analytics.track('onboarding_completed');
         await new Promise(resolve => setTimeout(resolve, 100));
-
         window.location.reload();
       } catch (error) {
         console.error('Failed to complete onboarding:', error);
@@ -491,14 +461,14 @@ export function DownloadProgressStep() {
           )}
         </AnimatePresence>
 
-        {/* Continue Button */}
+        {/* Continue Button — always active; downloads run in background */}
         <div className="w-full max-w-xs">
           <Button
             onClick={handleContinue}
-            disabled={!parakeetDownloaded || isCompleting}
+            disabled={isCompleting}
             className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {(isCompleting || !parakeetDownloaded) ? (
+            {isCompleting ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
               t('onboarding.download.continue')

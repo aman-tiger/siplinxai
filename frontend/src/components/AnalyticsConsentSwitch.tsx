@@ -146,13 +146,6 @@ export default function AnalyticsConsentSwitch() {
     // Keep analytics enabled, no state change needed
   };
 
-  const handlePrivacyPolicyClick = async () => {
-    try {
-      await invoke('open_external_url', { url: 'https://github.com/Zackriya-Solutions/meeting-minutes/blob/main/PRIVACY_POLICY.md' });
-    } catch (error) {
-      console.error('Failed to open privacy policy link:', error);
-    }
-  };
 
   return (
     <>
@@ -224,15 +217,7 @@ export default function AnalyticsConsentSwitch() {
         <div className="flex items-start gap-2 p-2 bg-blue-50 rounded border border-blue-200">
           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
           <div className="text-xs text-blue-700">
-            <p className="mb-1">
-              {t("dialogs.consent.privateNote")}
-            </p>
-            <button
-              onClick={handlePrivacyPolicyClick}
-              className="text-blue-600 hover:text-blue-800 underline hover:no-underline"
-            >
-              {t("dialogs.consent.viewPrivacyPolicy")}
-            </button>
+            <p>{t("dialogs.consent.privateNote")}</p>
           </div>
         </div>
       </div>

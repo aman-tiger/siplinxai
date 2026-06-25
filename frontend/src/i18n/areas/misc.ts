@@ -164,7 +164,7 @@ export const en: Dict = {
   "misc.about.privacyTitle": "Privacy-first",
   "misc.about.privacyDesc": "Your data & AI processing workflow can now stay within your premise. No cloud, no leaks.",
   "misc.about.anyModelTitle": "Use Any Model",
-  "misc.about.anyModelDesc": "Prefer local open-source model? Great. Want to plug in an external API? Also fine. No lock-in.",
+  "misc.about.anyModelDesc": "Prefer on-device AI processing? Great. Want to plug in an external API? Also fine. No vendor lock-in.",
   "misc.about.costSmartTitle": "Cost-Smart",
   "misc.about.costSmartDesc": "Avoid pay-per-minute bills by running models locally (or pay only for the calls you choose).",
   "misc.about.everywhereTitle": "Works everywhere",
@@ -175,8 +175,8 @@ export const en: Dict = {
   "misc.about.ctaTextPrefix": "If you're planning to build privacy-first custom AI agents or a fully tailored product for your",
   "misc.about.ctaBusiness": "business",
   "misc.about.ctaTextSuffix": ", we can help you build it.",
-  "misc.about.ctaButton": "Chat with the Zackriya team",
-  "misc.about.builtBy": "Built by Zackriya Solutions",
+  "misc.about.ctaButton": "Contact us",
+  "misc.about.builtBy": "Siplinx AI",
 };
 
 export const ru: Dict = {
@@ -342,7 +342,7 @@ export const ru: Dict = {
   "misc.about.privacyTitle": "Сначала приватность",
   "misc.about.privacyDesc": "Ваши данные и AI-обработка теперь остаются в вашем контуре. Без облака, без утечек.",
   "misc.about.anyModelTitle": "Любая модель",
-  "misc.about.anyModelDesc": "Предпочитаете локальную open-source модель? Отлично. Хотите подключить внешний API? Тоже можно. Без привязки к вендору.",
+  "misc.about.anyModelDesc": "Предпочитаете обработку прямо на устройстве? Отлично. Хотите подключить внешний API? Тоже можно. Без привязки к вендору.",
   "misc.about.costSmartTitle": "Экономно",
   "misc.about.costSmartDesc": "Избегайте поминутных счетов, запуская модели локально (или платите только за те вызовы, которые выбираете).",
   "misc.about.everywhereTitle": "Работает везде",
@@ -353,6 +353,6 @@ export const ru: Dict = {
   "misc.about.ctaTextPrefix": "Если вы планируете создать privacy-first AI-агентов под себя или полностью кастомный продукт для вашего",
   "misc.about.ctaBusiness": "бизнеса",
   "misc.about.ctaTextSuffix": ", мы поможем вам его построить.",
-  "misc.about.ctaButton": "Написать команде Zackriya",
-  "misc.about.builtBy": "Сделано Zackriya Solutions",
+  "misc.about.ctaButton": "Написать нам",
+  "misc.about.builtBy": "Siplinx AI",
 };

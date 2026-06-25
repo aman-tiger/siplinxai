@@ -80,15 +80,6 @@ export function BluetoothPlaybackWarning({
             {t('recording.bluetoothBody1')} <strong>{deviceName}</strong>{t('recording.bluetoothBody2')}{' '}
             <strong>{t('recording.bluetoothComputerSpeakers')}</strong> {t('recording.bluetoothOr')}{' '}
             <strong>{t('recording.bluetoothWiredHeadphones')}</strong>.
-            <br />
-            <a
-              href="https://github.com/your-org/meetily/blob/main/BLUETOOTH_PLAYBACK_NOTICE.md"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-yellow-900 font-medium mt-2 inline-block"
-            >
-              {t('recording.bluetoothLearnWhy')}
-            </a>
           </AlertDescription>
         </div>
         <Button

@@ -25,7 +25,7 @@ export function About() {
 
     const handleContactClick = async () => {
         try {
-            await invoke('open_external_url', { url: 'https://meetily.zackriya.com/#about' });
+            await invoke('open_external_url', { url: 'mailto:hello@siplinxai.com' });
         } catch (error) {
             console.error('Failed to open link:', error);
         }

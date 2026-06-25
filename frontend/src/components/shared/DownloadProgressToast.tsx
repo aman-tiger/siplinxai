@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { toast } from 'sonner';
-import { X, Download, Check, Loader2, ArrowBigDownDash } from 'lucide-react';
+import { X, Check, ArrowBigDownDash } from 'lucide-react';
+import { Analytics } from '@/lib/analytics';
 
 interface DownloadProgress {
   modelName: string;
@@ -119,10 +120,15 @@ function DownloadToastContent({
   );
 }
 
+const PARAKEET_KEY = 'parakeet-tdt-0.6b-v3-int8';
+
 // Hook to manage download progress toasts
 export function useDownloadProgressToast() {
   const [downloads, setDownloads] = useState<Map<string, DownloadProgress>>(new Map());
   const [dismissedModels, setDismissedModels] = useState<Set<string>>(new Set());
+  const completedRef = useRef<Set<string>>(new Set());
+  const startedRef = useRef<Set<string>>(new Set());
+  const allSetShownRef = useRef(false);
 
   const updateDownload = useCallback((modelName: string, data: Partial<DownloadProgress>) => {
     setDownloads((prev) => {
@@ -228,6 +234,11 @@ export function useDownloadProgressToast() {
     }>('parakeet-model-download-progress', (event) => {
       const { modelName, progress, downloaded_mb, total_mb, speed_mbps, status } = event.payload;
 
+      if (!startedRef.current.has(modelName)) {
+        startedRef.current.add(modelName);
+        Analytics.track('model_download_started', { model: 'parakeet' });
+      }
+
       const downloadData: DownloadProgress = {
         modelName,
         displayName: 'Transcription Model (Parakeet)',
@@ -244,17 +255,16 @@ export function useDownloadProgressToast() {
 
       updateDownload(modelName, downloadData);
 
-      // Clean up cancelled downloads after delay to auto-dismiss toast
       if (downloadData.status === 'cancelled') {
-        cleanupDownload(modelName, 6000); // 5s toast + 1s buffer
+        cleanupDownload(modelName, 6000);
       }
-      // Removed direct showDownloadToast call here, handled by effect
     });
 
     const unlistenComplete = listen<{ modelName: string }>(
       'parakeet-model-download-complete',
       (event) => {
         const { modelName } = event.payload;
+        Analytics.track('model_download_completed', { model: 'parakeet' });
         const downloadData: DownloadProgress = {
           modelName,
           displayName: 'Transcription Model (Parakeet)',
@@ -265,7 +275,6 @@ export function useDownloadProgressToast() {
           status: 'completed',
         };
         updateDownload(modelName, downloadData);
-        // Clean up after 4 seconds (completion toast duration is 3s + 1s buffer)
         cleanupDownload(modelName, 4000);
       }
     );
@@ -274,6 +283,7 @@ export function useDownloadProgressToast() {
       'parakeet-model-download-error',
       (event) => {
         const { modelName, error } = event.payload;
+        Analytics.track('model_download_failed', { model: 'parakeet', error_type: categorizeError(error) });
         const downloadData: DownloadProgress = {
           modelName,
           displayName: 'Transcription Model (Parakeet)',
@@ -285,7 +295,6 @@ export function useDownloadProgressToast() {
           error: categorizeError(error),
         };
         updateDownload(modelName, downloadData);
-        // Clean up after 11 seconds (error toast duration is 10s + 1s buffer)
         cleanupDownload(modelName, 11000);
       }
     );
@@ -310,6 +319,26 @@ export function useDownloadProgressToast() {
     }>('builtin-ai-download-progress', (event) => {
       const { model, progress, downloaded_mb, total_mb, speed_mbps, status, error } = event.payload;
 
+      if (!startedRef.current.has(model)) {
+        startedRef.current.add(model);
+        Analytics.track('model_download_started', { model });
+      }
+
+      const resolvedStatus = status === 'completed' || progress >= 100
+        ? 'completed'
+        : status === 'cancelled'
+          ? 'cancelled'
+          : status === 'error'
+            ? 'error'
+            : 'downloading';
+
+      if (resolvedStatus === 'completed' && !completedRef.current.has(model)) {
+        Analytics.track('model_download_completed', { model });
+      }
+      if (resolvedStatus === 'error') {
+        Analytics.track('model_download_failed', { model, error_type: categorizeError(error || 'Download failed') });
+      }
+
       const downloadData: DownloadProgress = {
         modelName: model,
         displayName: `Summary Model (${model})`,
@@ -317,25 +346,18 @@ export function useDownloadProgressToast() {
         downloadedMb: downloaded_mb ?? 0,
         totalMb: total_mb ?? (model.includes('4b') ? 2500 : 806),
         speedMbps: speed_mbps ?? 0,
-        status: status === 'completed' || progress >= 100
-          ? 'completed'
-          : status === 'cancelled'
-            ? 'cancelled'
-            : status === 'error'
-              ? 'error'
-              : 'downloading',
-        error: status === 'error' ? categorizeError(error || 'Download failed') : undefined,
+        status: resolvedStatus,
+        error: resolvedStatus === 'error' ? categorizeError(error || 'Download failed') : undefined,
       };
 
       updateDownload(model, downloadData);
 
-      // Clean up finished downloads after delay to prevent endless toasts
       if (downloadData.status === 'completed') {
-        cleanupDownload(model, 4000);  // 3s toast + 1s buffer
+        cleanupDownload(model, 4000);
       } else if (downloadData.status === 'error') {
-        cleanupDownload(model, 11000); // 10s toast + 1s buffer
+        cleanupDownload(model, 11000);
       } else if (downloadData.status === 'cancelled') {
-        cleanupDownload(model, 6000);  // 5s toast + 1s buffer
+        cleanupDownload(model, 6000);
       }
     });
 
@@ -343,6 +365,29 @@ export function useDownloadProgressToast() {
       unlisten.then((fn) => fn());
     };
   }, [updateDownload, cleanupDownload]);
+
+  // Show "You're all set" once when BOTH models have finished downloading.
+  useEffect(() => {
+    if (allSetShownRef.current) return;
+    downloads.forEach((dl) => {
+      if (dl.status === 'completed') {
+        completedRef.current.add(dl.modelName);
+      }
+    });
+    // We expect at least parakeet + one gemma model to complete.
+    const parakeetDone = completedRef.current.has(PARAKEET_KEY);
+    const gemmaDone = [...completedRef.current].some(k => k.startsWith('gemma'));
+    if (parakeetDone && gemmaDone) {
+      allSetShownRef.current = true;
+      // Dismiss in-progress toasts first
+      completedRef.current.forEach(k => toast.dismiss(`download-${k}`));
+      toast.success("You're all set", {
+        description: 'AI is ready. Enjoy Siplinx AI!',
+        duration: 5000,
+        position: 'bottom-right',
+      });
+    }
+  }, [downloads]);
 
   return { downloads };
 }

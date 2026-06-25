@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useT } from "@/contexts/I18nContext";
 import { openCheckout, openPortal, redeemTrial } from "@/lib/authClient";
+import { Analytics } from "@/lib/analytics";
 
 /**
  * Бренд Siplinx AI: градиент синий #2F6BFF → фиолетовый #7A3BE0.
@@ -45,8 +46,10 @@ export function UpgradeButton({
 
   const handle = async () => {
     setBusy(true);
+    Analytics.track('upgrade_clicked', { plan });
     try {
       await openCheckout(plan);
+      Analytics.track('checkout_started', { plan });
       startPolling();
     } catch {
       setBusy(false);
@@ -120,13 +123,16 @@ export function PromoCodeField() {
     if (!value) return;
     setBusy(true);
     setMsg(null);
+    Analytics.track('trial_code_submitted');
     const res = await redeemTrial(value);
     if (res.ok) {
       setMsg({ kind: "ok", text: t("promo.success") });
+      Analytics.track('trial_activated', { days: '7' });
       await refresh();
     } else {
       const key = KNOWN_PROMO_ERRORS.includes(res.code) ? res.code : "server";
       setMsg({ kind: "err", text: t(`promo.err.${key}`) });
+      Analytics.track('trial_code_failed', { error: key });
       setBusy(false);
     }
   };
