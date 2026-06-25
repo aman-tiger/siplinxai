@@ -3,6 +3,7 @@ use crate::summary::templates;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::Client;
+use serde::Deserialize;
 use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
@@ -19,6 +20,187 @@ const LOCAL_EXTRACT_CHUNK_TOKENS: usize = 1800;
 
 /// Overlap (tokens) between local extraction chunks, so facts spanning a boundary aren't lost.
 const LOCAL_EXTRACT_OVERLAP_TOKENS: usize = 200;
+
+// ============================================================================
+// Structured extraction (Step 1 output) + code-side merge (Step 2)
+//
+// The local chain is: extract -> merge -> compose.
+//   Step 1 (extract): the model returns a JSON object of raw facts per chunk.
+//   Step 2 (merge):   plain Rust code dedups and unions those facts (NO model call).
+//   Step 3 (compose): the model only has to format the clean, merged notes.
+// Doing the merge in code (instead of letting a tiny model re-read a pile of
+// concatenated notes) removes duplicates reliably and keeps the compose prompt small.
+// ============================================================================
+
+/// One action item from a chunk. Tiny models are inconsistent, so we accept both the
+/// structured object form and a plain string fallback.
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum ActionItemRaw {
+    /// Structured form: {"owner": "...", "task": "...", "due": "..."}
+    Structured {
+        #[serde(default)]
+        owner: String,
+        #[serde(default)]
+        task: String,
+        #[serde(default)]
+        due: String,
+    },
+    /// Lenient fallback: the model emitted a plain string instead of an object.
+    Text(String),
+}
+
+impl ActionItemRaw {
+    /// Render an action item as a single bullet, omitting parts the transcript didn't state.
+    fn to_display(&self) -> String {
+        match self {
+            ActionItemRaw::Text(s) => s.trim().to_string(),
+            ActionItemRaw::Structured { owner, task, due } => {
+                let owner = owner.trim();
+                let task = task.trim();
+                let due = due.trim();
+                let mut s = String::new();
+                if !owner.is_empty() {
+                    s.push_str(owner);
+                    s.push_str(": ");
+                }
+                s.push_str(task);
+                if !due.is_empty() {
+                    s.push_str(" (");
+                    s.push_str(due);
+                    s.push(')');
+                }
+                s.trim().to_string()
+            }
+        }
+    }
+}
+
+/// Facts extracted from a single transcript chunk (Step 1 JSON output).
+#[derive(Debug, Deserialize, Default)]
+struct ChunkFacts {
+    #[serde(default)]
+    decisions: Vec<String>,
+    #[serde(default)]
+    action_items: Vec<ActionItemRaw>,
+    #[serde(default)]
+    questions: Vec<String>,
+    #[serde(default)]
+    key_points: Vec<String>,
+    #[serde(default)]
+    participants: Vec<String>,
+}
+
+/// Deduplicated, merged facts across all chunks (Step 2 result).
+#[derive(Debug, Default)]
+struct MergedFacts {
+    decisions: Vec<String>,
+    action_items: Vec<String>,
+    questions: Vec<String>,
+    key_points: Vec<String>,
+    participants: Vec<String>,
+}
+
+impl MergedFacts {
+    fn is_empty(&self) -> bool {
+        self.decisions.is_empty()
+            && self.action_items.is_empty()
+            && self.questions.is_empty()
+            && self.key_points.is_empty()
+            && self.participants.is_empty()
+    }
+
+    /// Render the merged facts as clean, deterministic notes for the compose step.
+    /// The headers are scaffolding only - the compose step detects the language from the
+    /// content (which stays in the transcript's own language) and writes its own headings.
+    fn render_notes(&self) -> String {
+        fn section(out: &mut String, header: &str, items: &[String]) {
+            out.push_str(header);
+            out.push('\n');
+            if items.is_empty() {
+                out.push_str("- -\n");
+            } else {
+                for item in items {
+                    out.push_str("- ");
+                    out.push_str(item);
+                    out.push('\n');
+                }
+            }
+            out.push('\n');
+        }
+
+        let mut out = String::new();
+        section(&mut out, "DECISIONS:", &self.decisions);
+        section(&mut out, "ACTION ITEMS:", &self.action_items);
+        section(&mut out, "DISCUSSION:", &self.key_points);
+        section(&mut out, "OPEN QUESTIONS:", &self.questions);
+        section(&mut out, "PARTICIPANTS:", &self.participants);
+        out.trim_end().to_string()
+    }
+}
+
+/// Normalize a string for case/whitespace-insensitive dedup comparison.
+fn dedup_key(s: &str) -> String {
+    s.trim()
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Deduplicate a list of strings, preserving first-seen order and dropping
+/// empty/placeholder entries (e.g. a lone dash that means "nothing here").
+fn dedup_preserve_order(items: impl IntoIterator<Item = String>) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for item in items {
+        let trimmed = item.trim().to_string();
+        if trimmed.is_empty() || trimmed == "-" {
+            continue;
+        }
+        let key = dedup_key(&trimmed);
+        if key.is_empty() {
+            continue;
+        }
+        if seen.insert(key) {
+            out.push(trimmed);
+        }
+    }
+    out
+}
+
+/// Parse a chunk's raw extraction output into structured facts.
+/// Lenient: strips thinking tags / code fences and isolates the outermost JSON object,
+/// so minor formatting noise from tiny models doesn't break extraction. Returns None
+/// when no valid JSON object can be recovered.
+fn parse_chunk_facts(raw: &str) -> Option<ChunkFacts> {
+    let cleaned = clean_llm_markdown_output(raw);
+    let start = cleaned.find('{')?;
+    let end = cleaned.rfind('}')?;
+    if end <= start {
+        return None;
+    }
+    let json_str = &cleaned[start..=end];
+    serde_json::from_str::<ChunkFacts>(json_str).ok()
+}
+
+/// Merge structured facts from all chunks into a single deduplicated set (Step 2).
+fn merge_facts(chunks: &[ChunkFacts]) -> MergedFacts {
+    MergedFacts {
+        decisions: dedup_preserve_order(chunks.iter().flat_map(|c| c.decisions.iter().cloned())),
+        action_items: dedup_preserve_order(
+            chunks
+                .iter()
+                .flat_map(|c| c.action_items.iter())
+                .map(|a| a.to_display()),
+        ),
+        questions: dedup_preserve_order(chunks.iter().flat_map(|c| c.questions.iter().cloned())),
+        key_points: dedup_preserve_order(chunks.iter().flat_map(|c| c.key_points.iter().cloned())),
+        participants: dedup_preserve_order(
+            chunks.iter().flat_map(|c| c.participants.iter().cloned()),
+        ),
+    }
+}
 
 /// Rough token count estimation using character count
 pub fn rough_token_count(s: &str) -> usize {
@@ -234,13 +416,39 @@ pub async fn generate_meeting_summary(
         };
         let num_chunks = chunks.len();
 
-        // Single-purpose extraction prompt with a one-shot example. A concrete example is the
-        // single biggest quality lever for tiny models: it locks the output format AND teaches
-        // the model to mirror the transcript's language (directly fighting English drift).
-        let extract_system_prompt = "You are an expert meeting-notes extractor. Extract the raw facts from the transcript. Do NOT summarize, interpret, rephrase, or translate.\n\nReturn compact bullet points grouped under these exact headers:\n- DECISIONS: concrete decisions that were made\n- ACTION ITEMS: tasks, each written as `owner - task - due` (use what is stated; omit unknown parts)\n- DISCUSSION: key topics, arguments and important details\n- PARTICIPANTS: names or roles mentioned\n\nRULES:\n1. Use ONLY information present in the transcript. Never invent anything (no names, dates, numbers, or timestamps that are not stated).\n2. Write every bullet in the SAME language as the transcript. Do not translate.\n3. Keep wording close to the original; quote key phrases where useful.\n4. If a group has no content, write a single bullet with a dash.\n\nEXAMPLE\n<transcript>\nИван: давайте запустим лендинг к пятнице. Мария, сделаешь макет? Мария: да, к среде. Решили бюджет не превышать 50 тысяч.\n</transcript>\nOutput:\n- DECISIONS:\n  - Запуск лендинга к пятнице.\n  - Бюджет не превышает 50 тысяч.\n- ACTION ITEMS:\n  - Мария - макет лендинга - среда\n- DISCUSSION:\n  - Сроки запуска лендинга и ограничение бюджета.\n- PARTICIPANTS:\n  - Иван, Мария\n(The example output is in Russian only because its transcript is Russian. Always mirror the transcript's own language.)";
+        // Single-purpose extraction prompt that returns a strict JSON object, with a one-shot
+        // example. A concrete example is the single biggest quality lever for tiny models: it
+        // locks the output format AND teaches the model to mirror the transcript's language
+        // (directly fighting English drift). The JSON is parsed and merged in code afterwards.
+        let extract_system_prompt = r#"You are an expert meeting-notes extractor. Read the transcript chunk and extract the raw facts as a SINGLE JSON object. Do NOT summarize, interpret, translate or invent.
+
+Output ONLY a JSON object with EXACTLY these keys:
+{
+  "decisions": ["<a concrete decision that was made>"],
+  "action_items": [{"owner": "<who, or empty>", "task": "<what>", "due": "<when, or empty>"}],
+  "questions": ["<an open question or unresolved issue>"],
+  "key_points": ["<an important topic, argument or detail>"],
+  "participants": ["<a name or role mentioned>"]
+}
+
+RULES:
+1. Use ONLY information present in the transcript chunk. Never invent names, dates, numbers or facts.
+2. Keep every string in the SAME language as the transcript. Do not translate.
+3. Keep wording close to the original.
+4. For action_items, include only the parts that are stated; set unknown fields to "".
+5. If a group has nothing, use an empty array [].
+6. Output the JSON object ONLY - no markdown, no code fences, no commentary before or after.
+
+EXAMPLE
+<transcript>
+Иван: давайте запустим лендинг к пятнице. Мария, сделаешь макет? Мария: да, к среде. Решили бюджет не превышать 50 тысяч.
+</transcript>
+{"decisions":["Запустить лендинг к пятнице","Бюджет не превышать 50 тысяч"],"action_items":[{"owner":"Мария","task":"сделать макет лендинга","due":"среда"}],"questions":[],"key_points":["Сроки запуска лендинга","Ограничение бюджета 50 тысяч"],"participants":["Иван","Мария"]}
+(The example is in Russian only because its transcript is Russian. Always mirror the transcript's own language.)"#;
         let extract_user_template = "<transcript>\n{}\n</transcript>";
 
-        let mut extracts = Vec::new();
+        let mut raw_extracts: Vec<String> = Vec::new();
+        let mut parsed_facts: Vec<ChunkFacts> = Vec::new();
         for (i, chunk) in chunks.iter().enumerate() {
             // Check for cancellation before processing each chunk
             if let Some(token) = cancellation_token {
@@ -271,8 +479,22 @@ pub async fn generate_meeting_summary(
             .await
             {
                 Ok(extract) => {
-                    extracts.push(extract);
-                    info!("✓ Chunk {}/{} extracted successfully", i + 1, num_chunks);
+                    // Parse the chunk's JSON facts. If parsing fails we still keep the raw
+                    // text as a fallback so we never regress below the previous behavior.
+                    match parse_chunk_facts(&extract) {
+                        Some(facts) => {
+                            info!("✓ Chunk {}/{} extracted and parsed as JSON", i + 1, num_chunks);
+                            parsed_facts.push(facts);
+                        }
+                        None => {
+                            info!(
+                                "⚠ Chunk {}/{} extracted but JSON parse failed; keeping raw text",
+                                i + 1,
+                                num_chunks
+                            );
+                        }
+                    }
+                    raw_extracts.push(extract);
                 }
                 Err(e) => {
                     // Check if error is due to cancellation
@@ -284,21 +506,32 @@ pub async fn generate_meeting_summary(
             }
         }
 
-        if extracts.is_empty() {
+        if raw_extracts.is_empty() {
             return Err(
                 "Extraction stage failed: No chunks were processed successfully.".to_string(),
             );
         }
 
-        successful_chunk_count = extracts.len() as i64;
+        successful_chunk_count = raw_extracts.len() as i64;
         info!(
-            "Successfully extracted {} out of {} chunk(s)",
-            successful_chunk_count, num_chunks
+            "Successfully extracted {} out of {} chunk(s) ({} parsed as JSON)",
+            successful_chunk_count,
+            num_chunks,
+            parsed_facts.len()
         );
 
-        // Light chain: concatenate the compact extracts and let the compose step
-        // synthesize the final report (no separate consolidate LLM call).
-        content_to_summarize = extracts.join("\n");
+        // Step 2 (merge) is done in plain code, not by the model: dedup and union the
+        // structured facts across all chunks, then render clean notes for the compose step.
+        // If no chunk produced valid JSON we fall back to concatenating the raw extracts
+        // (the previous behavior), so output is never worse than before.
+        let merged = merge_facts(&parsed_facts);
+        content_to_summarize = if merged.is_empty() {
+            info!("No structured facts parsed; falling back to raw extract concatenation");
+            raw_extracts.join("\n")
+        } else {
+            info!("Merged structured facts into deduplicated notes for compose");
+            merged.render_notes()
+        };
     }
 
     info!("Generating final markdown report with template: {}", template_id);
@@ -387,4 +620,121 @@ pub async fn generate_meeting_summary(
 
     info!("Summary generation completed successfully");
     Ok((final_markdown, successful_chunk_count))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_clean_json() {
+        let raw = r#"{"decisions":["Запустить лендинг"],"action_items":[{"owner":"Мария","task":"макет","due":"среда"}],"questions":[],"key_points":["Сроки"],"participants":["Иван","Мария"]}"#;
+        let facts = parse_chunk_facts(raw).expect("should parse");
+        assert_eq!(facts.decisions, vec!["Запустить лендинг"]);
+        assert_eq!(facts.action_items.len(), 1);
+        assert_eq!(facts.participants, vec!["Иван", "Мария"]);
+    }
+
+    #[test]
+    fn parses_json_with_fences_and_surrounding_text() {
+        // Tiny models often wrap JSON in prose or code fences; we isolate the object.
+        let raw = "Here are the facts:\n```json\n{\"decisions\":[\"X\"],\"key_points\":[\"Y\"]}\n```\nDone.";
+        let facts = parse_chunk_facts(raw).expect("should parse");
+        assert_eq!(facts.decisions, vec!["X"]);
+        assert_eq!(facts.key_points, vec!["Y"]);
+        assert!(facts.action_items.is_empty());
+    }
+
+    #[test]
+    fn action_items_accept_plain_strings() {
+        // Lenient fallback: action_items emitted as plain strings instead of objects.
+        let raw = r#"{"action_items":["Мария: сделать макет"]}"#;
+        let facts = parse_chunk_facts(raw).expect("should parse");
+        assert_eq!(facts.action_items.len(), 1);
+        assert_eq!(facts.action_items[0].to_display(), "Мария: сделать макет");
+    }
+
+    #[test]
+    fn invalid_json_returns_none() {
+        assert!(parse_chunk_facts("no json here at all").is_none());
+        assert!(parse_chunk_facts("").is_none());
+    }
+
+    #[test]
+    fn action_item_display_omits_unknown_parts() {
+        let only_task = ActionItemRaw::Structured {
+            owner: "".into(),
+            task: "написать ТЗ".into(),
+            due: "".into(),
+        };
+        assert_eq!(only_task.to_display(), "написать ТЗ");
+
+        let full = ActionItemRaw::Structured {
+            owner: "Иван".into(),
+            task: "созвон".into(),
+            due: "пятница".into(),
+        };
+        assert_eq!(full.to_display(), "Иван: созвон (пятница)");
+    }
+
+    #[test]
+    fn merge_dedups_across_chunks_case_insensitively() {
+        let chunks = vec![
+            ChunkFacts {
+                decisions: vec!["Запустить лендинг".into(), "Бюджет 50к".into()],
+                participants: vec!["Иван".into(), "Мария".into()],
+                ..Default::default()
+            },
+            ChunkFacts {
+                // "запустить лендинг" is a case-different duplicate; "Иван" repeats.
+                decisions: vec!["запустить лендинг".into(), "Нанять дизайнера".into()],
+                participants: vec!["Иван".into(), "Пётр".into()],
+                ..Default::default()
+            },
+        ];
+        let merged = merge_facts(&chunks);
+        assert_eq!(
+            merged.decisions,
+            vec!["Запустить лендинг", "Бюджет 50к", "Нанять дизайнера"]
+        );
+        assert_eq!(merged.participants, vec!["Иван", "Мария", "Пётр"]);
+    }
+
+    #[test]
+    fn merge_drops_empty_and_dash_placeholders() {
+        let chunks = vec![ChunkFacts {
+            decisions: vec!["-".into(), "".into(), "  ".into(), "Реальное решение".into()],
+            ..Default::default()
+        }];
+        let merged = merge_facts(&chunks);
+        assert_eq!(merged.decisions, vec!["Реальное решение"]);
+    }
+
+    #[test]
+    fn empty_merge_is_detected() {
+        let merged = merge_facts(&[]);
+        assert!(merged.is_empty());
+        // Non-empty once any section has content.
+        let merged2 = merge_facts(&[ChunkFacts {
+            key_points: vec!["A".into()],
+            ..Default::default()
+        }]);
+        assert!(!merged2.is_empty());
+    }
+
+    #[test]
+    fn render_notes_groups_under_headers() {
+        let merged = MergedFacts {
+            decisions: vec!["D1".into()],
+            action_items: vec!["Иван: задача".into()],
+            key_points: vec!["K1".into()],
+            questions: vec!["Q1".into()],
+            participants: vec!["Иван".into()],
+        };
+        let notes = merged.render_notes();
+        assert!(notes.contains("DECISIONS:\n- D1"));
+        assert!(notes.contains("ACTION ITEMS:\n- Иван: задача"));
+        assert!(notes.contains("OPEN QUESTIONS:\n- Q1"));
+        assert!(notes.contains("PARTICIPANTS:\n- Иван"));
+    }
 }
