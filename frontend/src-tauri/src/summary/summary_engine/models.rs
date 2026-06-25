@@ -73,12 +73,14 @@ pub fn get_available_models() -> Vec<ModelDef> {
             template: "gemma3".to_string(),
             download_url: "https://meetily.towardsgeneralintelligence.com/models/gemma-3-1b-it-Q8_0.gguf".to_string(),
             size_mb: 1019,
-            context_size: 32768, 
-            layer_count: 26,     
+            context_size: 32768,
+            layer_count: 26,
+            // Low temperature for factual summarization: keeps the model grounded in
+            // the transcript and reduces hallucination/drift (1.0 was a creative-chat default).
             sampling: SamplingParams {
-                temperature: 1.0,
-                top_k: 64,
-                top_p: 0.95,
+                temperature: 0.3,
+                top_k: 40,
+                top_p: 0.9,
                 stop_tokens: vec!["<end_of_turn>".to_string()],
             },
             description: "Fastest model. Runs on any hardware with ~1GB RAM. Good for quick summaries.".to_string(),
@@ -92,10 +94,11 @@ pub fn get_available_models() -> Vec<ModelDef> {
             size_mb: 2374,
             context_size: 32768, // Supports 128k, but 32k is good for local·
             layer_count: 35,
+            // Low temperature for factual summarization (see Gemma 3 1B note above).
             sampling: SamplingParams {
-                temperature: 1.0,
-                top_k: 64,
-                top_p: 0.95,
+                temperature: 0.3,
+                top_k: 40,
+                top_p: 0.9,
                 stop_tokens: vec!["<end_of_turn>".to_string()],
             },
             description: "Balanced model. Great quality/speed trade-off. Requires ~3.5GB RAM.".to_string(),
@@ -136,11 +139,16 @@ pub fn get_models_directory(app_data_dir: &PathBuf) -> PathBuf {
 // Prompt Templates (Model-Specific Formatting)
 // ============================================================================
 
-/// Gemma 3 chat template format
+/// Gemma 3 chat template format.
+///
+/// Gemma instruction-tuned models support only `user` and `model` roles - there is no
+/// `system` role. Per Google's prompt guide, system instructions must be prepended to the
+/// *single* first user turn. The previous template emitted two consecutive `user` turns,
+/// which deviates from the training schema and degrades instruction-following.
 pub const GEMMA3_TEMPLATE: &str = "\
 <start_of_turn>user
-{system_prompt}<end_of_turn>
-<start_of_turn>user
+{system_prompt}
+
 {user_prompt}<end_of_turn>
 <start_of_turn>model
 ";
