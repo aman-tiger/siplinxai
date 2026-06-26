@@ -101,7 +101,10 @@ jobs:
             target: "x86_64-pc-windows-msvc"
           # macOS universal: один .dmg на Apple Silicon И Intel (для скачивания с сайта).
           # Сайдкары (llama-helper, ffmpeg) собираются/склеиваются lipo под обе архитектуры.
-          - platform: "macos-latest"
+          # Пин на macos-14: на macos-latest GitHub укатил образ, где активный Xcode
+          # резолвится в несуществующий путь Xcode_16.4/clang/17 → линковка падает на
+          # `ld: library 'clang_rt.osx' not found`. macos-14 — стабильный известно-рабочий.
+          - platform: "macos-14"
             args: "--target universal-apple-darwin"
             target: "universal-apple-darwin"
 
