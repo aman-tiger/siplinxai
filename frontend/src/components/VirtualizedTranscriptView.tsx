@@ -262,6 +262,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                         <>
                             <p className="text-lg font-semibold">{t('misc.transcriptView.welcome')}</p>
                             <p className="text-xs mt-1">{t('misc.transcriptView.startRecording')}</p>
+                            <p className="text-xs mt-3 text-gray-400">{t('misc.transcriptView.savedHint')}</p>
                         </>
                     )}
                 </motion.div>

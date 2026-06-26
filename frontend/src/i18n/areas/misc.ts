@@ -16,6 +16,7 @@ export const en: Dict = {
   "misc.summary.stopTitle": "Stop summary generation",
   "misc.summary.generate": "Generate Summary",
   "misc.summary.generateTitle": "Generate AI Summary",
+  "misc.summary.contextPlaceholder": "Add context for the summary: who took part, the topic and goal of the meeting",
   "misc.summary.processing": "Processing...",
   "misc.summary.loadingConfigTitle": "Loading model configuration...",
   "misc.summary.checkingModelsTitle": "Checking models...",
@@ -124,6 +125,7 @@ export const en: Dict = {
   "misc.transcriptView.speakToSee": "Speak to see live transcription",
   "misc.transcriptView.welcome": "Welcome to Siplinx AI!",
   "misc.transcriptView.startRecording": "Start recording to see live transcription",
+  "misc.transcriptView.savedHint": "Recordings are saved to “My Meetings” on the left",
   "misc.transcriptView.loadingMore": "Loading more...",
   "misc.transcriptView.showingSegments": "Showing {loaded} of {total} segments",
 
@@ -198,6 +200,7 @@ export const ru: Dict = {
   "misc.summary.stopTitle": "Остановить создание саммари",
   "misc.summary.generate": "Создать саммари",
   "misc.summary.generateTitle": "Создать AI-саммари",
+  "misc.summary.contextPlaceholder": "Контекст для саммари: кто участвовал, тема и цель встречи",
   "misc.summary.processing": "Обработка...",
   "misc.summary.loadingConfigTitle": "Загрузка настроек модели...",
   "misc.summary.checkingModelsTitle": "Проверка моделей...",
@@ -306,6 +309,7 @@ export const ru: Dict = {
   "misc.transcriptView.speakToSee": "Говорите, чтобы увидеть транскрипцию в реальном времени",
   "misc.transcriptView.welcome": "Добро пожаловать в Siplinx AI!",
   "misc.transcriptView.startRecording": "Начните запись, чтобы увидеть транскрипцию в реальном времени",
+  "misc.transcriptView.savedHint": "Записи сохраняются в «Мои встречи» слева",
   "misc.transcriptView.loadingMore": "Загружаем ещё...",
   "misc.transcriptView.showingSegments": "Показано {loaded} из {total} сегментов",
 
