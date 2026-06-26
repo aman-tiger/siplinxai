@@ -793,9 +793,6 @@ const Sidebar: React.FC = () => {
               <span>{t("sidebar.settings")}</span>
             </button>
             <Info isCollapsed={isCollapsed} />
-            <div className="w-full flex items-center justify-center px-3 py-1 text-xs text-gray-400">
-              v0.3.0
-            </div>
           </div>
         )}
       </div>
