@@ -4,6 +4,7 @@ import type { Dict } from "../types";
 export const en: Dict = {
   // Navigation / tooltips
   "sidebar.home": "Home",
+  "sidebar.newMeeting": "New Meeting",
   "sidebar.settings": "Settings",
   "sidebar.about": "About",
   "sidebar.meetingNotes": "My Meetings",
@@ -47,6 +48,7 @@ export const en: Dict = {
 export const ru: Dict = {
   // Navigation / tooltips
   "sidebar.home": "Главная",
+  "sidebar.newMeeting": "Новая встреча",
   "sidebar.settings": "Настройки",
   "sidebar.about": "О программе",
   "sidebar.meetingNotes": "Мои встречи",

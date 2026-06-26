@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload } from 'lucide-react';
+import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarProvider';
 import type { CurrentMeeting } from '@/components/Sidebar/SidebarProvider';
@@ -465,11 +465,11 @@ const Sidebar: React.FC = () => {
                 className={`p-2 rounded-lg transition-colors duration-150 ${isHomePage ? 'bg-gray-100' : 'hover:bg-gray-100'
                   }`}
               >
-                <Home className="w-5 h-5 text-gray-600" />
+                <Plus className="w-5 h-5 text-gray-600" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>{t("sidebar.home")}</p>
+              <p>{t("sidebar.newMeeting")}</p>
             </TooltipContent>
           </Tooltip>
 
@@ -732,8 +732,8 @@ const Sidebar: React.FC = () => {
                 onClick={() => router.push('/')}
                 className="p-3  text-lg font-semibold items-center hover:bg-gray-100 h-10   flex mx-3 mt-3 rounded-lg cursor-pointer"
               >
-                <Home className="w-4 h-4 mr-2" />
-                <span>{t("sidebar.home")}</span>
+                <Plus className="w-4 h-4 mr-2" />
+                <span>{t("sidebar.newMeeting")}</span>
               </div>
             )}
           </div>
