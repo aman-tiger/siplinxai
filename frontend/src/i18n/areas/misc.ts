@@ -177,6 +177,10 @@ export const en: Dict = {
   "misc.about.ctaTextSuffix": ", we can help you build it.",
   "misc.about.ctaButton": "Contact us",
   "misc.about.builtBy": "Siplinx AI",
+
+  // Persistent update banner (bottom-left corner)
+  "misc.updateBanner.label": "Version {version} available",
+  "misc.updateBanner.action": "Update",
 };
 
 export const ru: Dict = {
@@ -355,4 +359,8 @@ export const ru: Dict = {
   "misc.about.ctaTextSuffix": ", мы поможем вам его построить.",
   "misc.about.ctaButton": "Написать нам",
   "misc.about.builtBy": "Siplinx AI",
+
+  // Persistent update banner (bottom-left corner)
+  "misc.updateBanner.label": "Доступна версия {version}",
+  "misc.updateBanner.action": "Обновить",
 };

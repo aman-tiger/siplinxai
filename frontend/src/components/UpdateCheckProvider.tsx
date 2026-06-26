@@ -4,7 +4,8 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useUpdateCheck } from '@/hooks/useUpdateCheck';
 import { UpdateInfo } from '@/services/updateService';
 import { UpdateDialog } from './UpdateDialog';
-import { setUpdateDialogCallback, showUpdateNotification } from './UpdateNotification';
+import { UpdateBanner } from './UpdateBanner';
+import { setUpdateDialogCallback } from './UpdateNotification';
 
 interface UpdateCheckContextType {
   updateInfo: UpdateInfo | null;
@@ -24,11 +25,9 @@ export function UpdateCheckProvider({ children }: { children: React.ReactNode })
 
   const { updateInfo, isChecking, checkForUpdates } = useUpdateCheck({
     checkOnMount: true,
-    showNotification: true,
-    onUpdateAvailable: (info) => {
-      // Show notification, dialog will be shown when user clicks notification
-      showUpdateNotification(info, handleShowDialog);
-    },
+    // The persistent bottom-left UpdateBanner replaces the transient toast, so users
+    // can't miss an available update by looking away for a few seconds.
+    showNotification: false,
   });
 
   useEffect(() => {
@@ -60,6 +59,7 @@ export function UpdateCheckProvider({ children }: { children: React.ReactNode })
       }}
     >
       {children}
+      <UpdateBanner updateInfo={updateInfo} onUpdate={handleShowDialog} />
       <UpdateDialog
         open={showDialog}
         onOpenChange={setShowDialog}
