@@ -31,7 +31,7 @@ export interface UpdateProgress {
 export class UpdateService {
   private updateCheckInProgress = false;
   private lastCheckTime: number | null = null;
-  private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes (de-dupe window; periodic re-check runs hourly)
 
   /**
    * Check for available updates

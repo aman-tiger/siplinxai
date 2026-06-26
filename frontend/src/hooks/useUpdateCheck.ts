@@ -53,7 +53,16 @@ export function useUpdateCheck(options: UseUpdateCheckOptions = {}) {
         checkForUpdates(false);
       }, 2000); // Check 2 seconds after mount
 
-      return () => clearTimeout(timer);
+      // Re-check periodically so a freshly published update surfaces the banner
+      // without requiring an app restart (de-duped by updateService's 30-min window).
+      const interval = setInterval(() => {
+        checkForUpdates(false);
+      }, 60 * 60 * 1000); // every hour
+
+      return () => {
+        clearTimeout(timer);
+        clearInterval(interval);
+      };
     }
   }, [checkOnMount]);
 
