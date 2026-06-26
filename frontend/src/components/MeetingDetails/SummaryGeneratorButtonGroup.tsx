@@ -295,10 +295,10 @@ export function SummaryGeneratorButtonGroup({
           <Button
             variant="outline"
             size="sm"
-            title={t('misc.summary.settingsTitle')}
+            title={t('misc.summary.aiModel')}
+            aria-label={t('misc.summary.aiModel')}
           >
             <Settings />
-            <span className="hidden lg:inline">{t('misc.summary.aiModel')}</span>
           </Button>
         </DialogTrigger>
         <DialogContent
@@ -327,9 +327,9 @@ export function SummaryGeneratorButtonGroup({
               variant="outline"
               size="sm"
               title={t('misc.summary.selectTemplateTitle')}
+              aria-label={t('misc.summary.template')}
             >
               <FileText />
-              <span className="hidden lg:inline">{t('misc.summary.template')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

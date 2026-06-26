@@ -5,7 +5,8 @@ export const en: Dict = {
   // Navigation / tooltips
   "sidebar.home": "Home",
   "sidebar.settings": "Settings",
-  "sidebar.meetingNotes": "Meeting Notes",
+  "sidebar.about": "About",
+  "sidebar.meetingNotes": "My Meetings",
   "sidebar.importAudio": "Import Audio",
   "sidebar.startRecording": "Start Recording",
   "sidebar.recordingInProgress": "Recording in progress...",
@@ -47,7 +48,8 @@ export const ru: Dict = {
   // Navigation / tooltips
   "sidebar.home": "Главная",
   "sidebar.settings": "Настройки",
-  "sidebar.meetingNotes": "Заметки встреч",
+  "sidebar.about": "О программе",
+  "sidebar.meetingNotes": "Мои встречи",
   "sidebar.importAudio": "Импорт аудио",
   "sidebar.startRecording": "Начать запись",
   "sidebar.recordingInProgress": "Идёт запись...",

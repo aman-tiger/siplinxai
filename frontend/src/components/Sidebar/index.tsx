@@ -696,25 +696,28 @@ const Sidebar: React.FC = () => {
                 </span> */}
                 <Logo isCollapsed={isCollapsed} />
 
-                <div className="relative mb-1">
-                  <InputGroup >
-                    <InputGroupInput placeholder={t("sidebar.searchPlaceholder")} value={searchQuery}
-                      onChange={(e) => handleSearchChange(e.target.value)}
-                    />
-                    <InputGroupAddon>
-                      <SearchIcon />
-                    </InputGroupAddon>
-                    {searchQuery &&
-                      <InputGroupAddon align={'inline-end'}>
-                        <InputGroupButton
-                          onClick={() => handleSearchChange('')}
-                        >
-                          <X />
-                        </InputGroupButton>
+                {/* Show search only when there is something to search */}
+                {meetings.length > 0 && (
+                  <div className="relative mb-1">
+                    <InputGroup >
+                      <InputGroupInput placeholder={t("sidebar.searchPlaceholder")} value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                      />
+                      <InputGroupAddon>
+                        <SearchIcon />
                       </InputGroupAddon>
-                    }
-                  </InputGroup>
-                </div>
+                      {searchQuery &&
+                        <InputGroupAddon align={'inline-end'}>
+                          <InputGroupButton
+                            onClick={() => handleSearchChange('')}
+                          >
+                            <X />
+                          </InputGroupButton>
+                        </InputGroupAddon>
+                      }
+                    </InputGroup>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -64,9 +64,9 @@ export const en: Dict = {
   "misc.transcript.copyTranscript": "Copy Transcript",
   "misc.transcript.copy": "Copy",
   "misc.transcript.openRecordingFolder": "Open Recording Folder",
-  "misc.transcript.recording": "Recording",
-  "misc.transcript.enhanceTitle": "Retranscribe to enhance your recorded audio",
-  "misc.transcript.enhance": "Enhance",
+  "misc.transcript.recording": "Folder",
+  "misc.transcript.enhanceTitle": "Re-transcribe the audio with a more accurate model",
+  "misc.transcript.enhance": "Refine",
 
   // Empty state summary
   "misc.emptyState.title": "No Summary Generated Yet",
@@ -246,9 +246,9 @@ export const ru: Dict = {
   "misc.transcript.copyTranscript": "Копировать транскрипт",
   "misc.transcript.copy": "Копировать",
   "misc.transcript.openRecordingFolder": "Открыть папку записи",
-  "misc.transcript.recording": "Запись",
-  "misc.transcript.enhanceTitle": "Повторно расшифровать, чтобы улучшить записанный звук",
-  "misc.transcript.enhance": "Улучшить",
+  "misc.transcript.recording": "Папка записи",
+  "misc.transcript.enhanceTitle": "Перераспознать аудио более точной моделью",
+  "misc.transcript.enhance": "Уточнить транскрипт",
 
   // Empty state summary
   "misc.emptyState.title": "Саммари ещё не создано",

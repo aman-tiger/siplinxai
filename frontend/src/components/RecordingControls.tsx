@@ -473,7 +473,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
                     </>
                   )}
 
-                  <div className="flex items-center space-x-1 mx-4">
+                  <div className="flex items-center space-x-1 mx-4 pointer-events-none select-none" aria-hidden="true">
                     {barHeights.map((height, index) => (
                       <div
                         key={index}
