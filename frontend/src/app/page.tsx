@@ -39,7 +39,7 @@ export default function Home() {
   const { status, isStopping, isProcessing, isSaving } = recordingState;
 
   // Hooks
-  const { hasMicrophone } = usePermissionCheck();
+  usePermissionCheck();
   const { setIsMeetingActive, isCollapsed: sidebarCollapsed, refetchMeetings } = useSidebar();
   const { modals, messages, showModal, hideModal } = useModalState(transcriptModelConfig);
   const { isRecordingDisabled, setIsRecordingDisabled } = useRecordingStateSync(isRecording, setIsRecordingState, setIsMeetingActive);
@@ -221,8 +221,8 @@ export default function Home() {
           showModal={showModal}
         />
 
-        {/* Recording controls - only show when permissions are granted or already recording and not showing status messages */}
-        {(hasMicrophone || isRecording) &&
+        {/* Floating recording controls - only while a recording is active (start lives in the sidebar) */}
+        {isRecording &&
           status !== RecordingStatus.PROCESSING_TRANSCRIPTS &&
           status !== RecordingStatus.SAVING && (
             <div className="fixed bottom-12 left-0 right-0 z-10">
