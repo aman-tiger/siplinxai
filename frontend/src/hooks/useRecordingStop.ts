@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateContext';
+import { useT } from '@/contexts/I18nContext';
 import { storageService } from '@/services/storageService';
 import { transcriptService } from '@/services/transcriptService';
 import Analytics from '@/lib/analytics';
@@ -64,6 +65,7 @@ export function useRecordingStop(
   } = useSidebar();
 
   const router = useRouter();
+  const t = useT();
 
   // Guard to prevent duplicate/concurrent stop calls (e.g., from UI and tray simultaneously)
   const stopInProgressRef = useRef(false);
@@ -295,10 +297,10 @@ export function useRecordingStop(
           setStatus(RecordingStatus.COMPLETED);
 
           // Show success toast with navigation option
-          toast.success('Recording saved successfully!', {
-            description: `${freshTranscripts.length} transcript segments saved.`,
+          toast.success(t('recording.savedTitle'), {
+            description: t('recording.savedDesc'),
             action: {
-              label: 'View Meeting',
+              label: t('recording.viewMeeting'),
               onClick: () => {
                 router.push(`/meeting-details?id=${meetingId}`);
                 Analytics.trackButtonClick('view_meeting_from_toast', 'recording_complete');
@@ -370,8 +372,8 @@ export function useRecordingStop(
         } catch (saveError) {
           console.error('Failed to save meeting to database:', saveError);
           setStatus(RecordingStatus.ERROR, saveError instanceof Error ? saveError.message : 'Unknown error');
-          toast.error('Failed to save meeting', {
-            description: saveError instanceof Error ? saveError.message : 'Unknown error'
+          toast.error(t('recording.saveFailed'), {
+            description: saveError instanceof Error ? saveError.message : t('recording.unknownError')
           });
           throw saveError;
         }
@@ -407,6 +409,7 @@ export function useRecordingStop(
     meetings,
     setIsMeetingActive,
     router,
+    t,
   ]);
 
   // Expose handleRecordingStop function to window for Rust callbacks

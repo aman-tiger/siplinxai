@@ -68,7 +68,9 @@ export const useSidebar = () => {
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const t = useT();
   const [currentMeeting, setCurrentMeeting] = useState<CurrentMeeting | null>({ id: 'intro-call', title: t("sidebar.newCall") });
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  // Default expanded so first-run users see the meetings list ("где сохраняется").
+  // User's manual choice is remembered in localStorage.
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [meetings, setMeetings] = useState<CurrentMeeting[]>([]);
   const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>([]);
   const [isMeetingActive, setIsMeetingActive] = useState(false);
@@ -127,8 +129,28 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   ];
 
 
+  // Restore the user's last sidebar state (if they ever changed it).
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem('siplinx.sidebarCollapsed');
+      if (saved !== null) {
+        setIsCollapsed(saved === 'true');
+      }
+    } catch {
+      /* localStorage недоступен — оставляем дефолт (развёрнут) */
+    }
+  }, []);
+
   const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
+    setIsCollapsed(prev => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem('siplinx.sidebarCollapsed', String(next));
+      } catch {
+        /* localStorage недоступен — не критично */
+      }
+      return next;
+    });
   };
 
   // Update current meeting when on home page

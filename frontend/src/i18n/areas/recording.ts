@@ -147,6 +147,11 @@ export const en: Dict = {
   "recording.viewMeeting": "View Meeting",
   "recording.recoverFailed": "Failed to recover meeting",
   "recording.unknownError": "Unknown error occurred",
+
+  // Recording stop (useRecordingStop.ts) toasts
+  "recording.savedTitle": "Meeting saved",
+  "recording.savedDesc": "You'll find it in the list on the left.",
+  "recording.saveFailed": "Failed to save meeting",
 };
 
 export const ru: Dict = {
@@ -297,4 +302,9 @@ export const ru: Dict = {
   "recording.viewMeeting": "Открыть встречу",
   "recording.recoverFailed": "Не удалось восстановить встречу",
   "recording.unknownError": "Произошла неизвестная ошибка",
+
+  // Recording stop (useRecordingStop.ts) toasts
+  "recording.savedTitle": "Встреча сохранена",
+  "recording.savedDesc": "Запись появилась в списке «Мои встречи» слева.",
+  "recording.saveFailed": "Не удалось сохранить встречу",
 };

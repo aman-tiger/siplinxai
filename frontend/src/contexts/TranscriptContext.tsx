@@ -24,6 +24,31 @@ interface TranscriptContextType {
 
 const TranscriptContext = createContext<TranscriptContextType | undefined>(undefined);
 
+/**
+ * Builds a human-friendly fallback meeting title when the backend provides none.
+ * RU: "Встреча, 26 июня, 10:41" · EN: "Meeting, Jun 26, 10:41".
+ * Language: manual choice in localStorage → system locale → English.
+ */
+function buildFallbackMeetingTitle(date: Date = new Date()): string {
+  let lang = 'en';
+  try {
+    const manual = window.localStorage.getItem('siplinx.lang');
+    if (manual === 'ru' || manual === 'en') {
+      lang = manual;
+    } else if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('ru')) {
+      lang = 'ru';
+    }
+  } catch {
+    /* localStorage недоступен — остаёмся на en */
+  }
+
+  const locale = lang === 'ru' ? 'ru-RU' : 'en-US';
+  const datePart = date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+  const timePart = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const prefix = lang === 'ru' ? 'Встреча' : 'Meeting';
+  return `${prefix}, ${datePart}, ${timePart}`;
+}
+
 export function TranscriptProvider({ children }: { children: ReactNode }) {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [meetingTitle, setMeetingTitle] = useState('+ New Call');
@@ -105,8 +130,9 @@ export function TranscriptProvider({ children }: { children: ReactNode }) {
             // Get meeting name
             const meetingName = await recordingService.getRecordingMeetingName();
 
-            // Use a better fallback that matches the backend's naming pattern
-            const effectiveTitle = meetingName || `Meeting ${new Date().toISOString().slice(0, 19).replace('T', '_').replace(/:/g, '-')}`;
+            // Human-friendly fallback title, e.g. "Встреча, 26 июня, 10:41" / "Meeting, Jun 26, 10:41".
+            // Respects the UI language (manual choice → system locale → en).
+            const effectiveTitle = meetingName || buildFallbackMeetingTitle();
 
             // Initialize meeting metadata in IndexedDB
             await indexedDBService.saveMeetingMetadata({
