@@ -39,6 +39,8 @@ interface SummaryGeneratorButtonGroupProps {
   hasTranscripts?: boolean;
   isModelConfigLoading?: boolean;
   onOpenModelSettings?: (openFn: () => void) => void;
+  /** Hide the primary Generate button (used in the empty state, where EmptyStateSummary owns the CTA). */
+  showGenerateButton?: boolean;
 }
 
 export function SummaryGeneratorButtonGroup({
@@ -54,7 +56,8 @@ export function SummaryGeneratorButtonGroup({
   onTemplateSelect,
   hasTranscripts = true,
   isModelConfigLoading = false,
-  onOpenModelSettings
+  onOpenModelSettings,
+  showGenerateButton = true
 }: SummaryGeneratorButtonGroupProps) {
   const t = useT();
   const [isCheckingModels, setIsCheckingModels] = useState(false);
@@ -242,8 +245,8 @@ export function SummaryGeneratorButtonGroup({
 
   return (
     <ButtonGroup>
-      {/* Generate Summary or Stop button */}
-      {isGenerating ? (
+      {/* Generate Summary or Stop button (hidden in the empty state — EmptyStateSummary owns the CTA) */}
+      {showGenerateButton && (isGenerating ? (
         <Button
           variant="outline"
           size="sm"
@@ -287,7 +290,7 @@ export function SummaryGeneratorButtonGroup({
             </>
           )}
         </Button>
-      )}
+      ))}
 
       {/* Settings button */}
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>

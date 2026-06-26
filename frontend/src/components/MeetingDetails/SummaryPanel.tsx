@@ -172,7 +172,7 @@ export function SummaryPanel({
         </div>
       ) : !aiSummary ? (
         <div className="flex flex-col h-full">
-          {/* Centered Summary Generator Button Group when no summary */}
+          {/* Config controls only (AI model + template); the Generate CTA lives in EmptyStateSummary below */}
           <div className="flex items-center justify-center pt-8 pb-4">
             <SummaryGeneratorButtonGroup
               modelConfig={modelConfig}
@@ -188,6 +188,7 @@ export function SummaryPanel({
               hasTranscripts={transcripts.length > 0}
               isModelConfigLoading={isModelConfigLoading}
               onOpenModelSettings={onOpenModelSettings}
+              showGenerateButton={false}
             />
           </div>
           {/* Empty state message */}
