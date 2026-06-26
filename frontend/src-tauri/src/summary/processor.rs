@@ -21,6 +21,11 @@ const LOCAL_EXTRACT_CHUNK_TOKENS: usize = 1800;
 /// Overlap (tokens) between local extraction chunks, so facts spanning a boundary aren't lost.
 const LOCAL_EXTRACT_OVERLAP_TOKENS: usize = 200;
 
+/// Temperature for the local extraction step. Lower than the compose default so the model
+/// stays grounded in the transcript and produces stable, parseable JSON (less drift/invention).
+/// Only takes effect for the BuiltInAI sidecar; the Ollama HTTP path ignores temperature.
+const LOCAL_EXTRACT_TEMPERATURE: f32 = 0.2;
+
 // ============================================================================
 // Structured extraction (Step 1 output) + code-side merge (Step 2)
 //
@@ -471,7 +476,9 @@ EXAMPLE
                 ollama_endpoint,
                 custom_openai_endpoint,
                 max_tokens,
-                temperature,
+                // Force a low temperature for extraction so the JSON stays grounded and
+                // parseable, independent of the compose-step temperature.
+                Some(LOCAL_EXTRACT_TEMPERATURE),
                 top_p,
                 app_data_dir,
                 cancellation_token,

@@ -142,6 +142,7 @@ pub async fn generate_summary(
             model_name,
             system_prompt,
             user_prompt,
+            temperature,
             cancellation_token,
         )
         .await

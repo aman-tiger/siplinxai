@@ -131,6 +131,7 @@ pub async fn generate_with_builtin(
     model_name: &str,
     system_prompt: &str,
     user_prompt: &str,
+    temperature_override: Option<f32>,
     cancellation_token: Option<&CancellationToken>,
 ) -> Result<String> {
     // Check cancellation at start
@@ -174,13 +175,18 @@ pub async fn generate_with_builtin(
         }
     }
 
+    // Per-call temperature override (e.g. a lower value for fact extraction) falls back to
+    // the model's default sampling temperature when not provided.
+    let temperature = temperature_override.unwrap_or(model_def.sampling.temperature);
+    log::info!("Using temperature: {}", temperature);
+
     // Prepare generation request with model-specific sampling parameters
     let request = Request::Generate {
         prompt: formatted_prompt,
         max_tokens: Some(models::DEFAULT_MAX_TOKENS),
         context_size: Some(model_def.context_size),
         model_path: Some(model_path.to_string_lossy().to_string()),
-        temperature: Some(model_def.sampling.temperature),
+        temperature: Some(temperature),
         top_k: Some(model_def.sampling.top_k),
         top_p: Some(model_def.sampling.top_p),
         stop_tokens: Some(model_def.sampling.stop_tokens.clone()),
