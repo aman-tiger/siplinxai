@@ -227,7 +227,7 @@ mod tests {
         assert!(template.is_ok());
 
         let template = template.unwrap();
-        assert_eq!(template.name, "Daily Standup");
+        assert_eq!(template.name, "Дейли-стендап");
         assert!(!template.sections.is_empty());
     }
 

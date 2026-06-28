@@ -1,39 +1,31 @@
 {
-  "name": "Daily Standup",
-  "description": "Time-boxed daily updates for engineering/product teams.",
+  "name": "Дейли-стендап",
+  "description": "Короткий ежедневный статус команды: сделано, планы, блокеры.",
+  "summary_kind": "meeting",
   "sections": [
     {
-      "title": "Date",
-      "instruction": "YYYY-MM-DD",
-      "format": "string"
-    },
-    {
-      "title": "Attendees",
-      "instruction": "List of participants present",
+      "title": "Что сделано",
+      "key": "progress",
+      "instruction": "Что выполнено к этому моменту, по людям если ясно. Конкретно",
       "format": "list"
     },
     {
-      "title": "Yesterday",
-      "instruction": "What I completed yesterday (short bullets)",
-      "format": "list",
-      "example_item_format": "| **Owner** | **Completed Work** |\n| --- | --- |"
+      "title": "Планы",
+      "key": "plans",
+      "instruction": "Что планируют делать дальше, по людям если ясно",
+      "format": "list"
     },
     {
-      "title": "Today",
-      "instruction": "Planned work for today (short bullets)",
-      "format": "list",
-      "example_item_format": "| **Owner** | **Planned Work** |\n| --- | --- |"
+      "title": "Блокеры",
+      "key": "blockers",
+      "instruction": "Препятствия и кого они затрагивают. Если их нет, не выводи раздел",
+      "format": "list"
     },
     {
-      "title": "Blockers",
-      "instruction": "Any impediments and owner if known",
-      "format": "list",
-      "item_format": "| **Owner** | **Blocker** | Impact |\n| --- | --- | --- |"
-    },
-    {
-      "title": "Notes",
-      "instruction": "Optional quick notes or announcements",
-      "format": "paragraph"
+      "title": "Открытые вопросы",
+      "key": "open_questions",
+      "instruction": "Вопросы, требующие решения. Если их нет, не выводи раздел",
+      "format": "list"
     }
   ]
 }
