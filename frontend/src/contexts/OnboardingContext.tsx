@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { PermissionStatus, OnboardingPermissions } from '@/types/onboarding';
+import { DEFAULT_WHISPER_MODEL, localeNeedsWhisper } from '@/constants/modelDefaults';
 
 const PARAKEET_MODEL = 'parakeet-tdt-0.6b-v3-int8';
 
@@ -427,11 +428,27 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     setIsBackgroundDownloading(true);
 
     try {
-      // Start Parakeet download first (speech recognition - always required)
+      // Start Parakeet download first (speech recognition - always required as the safe
+      // baseline/fallback; onboarding completes on it).
       if (!parakeetDownloaded) {
         console.log('[OnboardingContext] Starting Parakeet download');
         invoke('parakeet_download_model', { modelName: PARAKEET_MODEL })
           .catch(err => console.error('[OnboardingContext] Parakeet download failed:', err));
+      }
+
+      // Hybrid transcription: Parakeet can't do Russian/Kazakh, so for those locales also
+      // pull Whisper turbo in the background. ConfigContext auto-switches to it once ready;
+      // until then Parakeet keeps recording working. English/EU stay on the faster Parakeet.
+      try {
+        const { locale } = await import('@tauri-apps/plugin-os');
+        const loc = await locale().catch(() => null);
+        if (localeNeedsWhisper(loc)) {
+          console.log('[OnboardingContext] RU/KK locale - also downloading Whisper turbo in background');
+          invoke('whisper_download_model', { modelName: DEFAULT_WHISPER_MODEL })
+            .catch(err => console.error('[OnboardingContext] Whisper download failed:', err));
+        }
+      } catch (e) {
+        console.warn('[OnboardingContext] Locale-based Whisper download skipped:', e);
       }
 
       // Start Gemma download after a delay to prioritize Parakeet bandwidth

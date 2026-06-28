@@ -7,6 +7,7 @@ import { configService, ModelConfig } from '@/services/configService';
 import { invoke } from '@tauri-apps/api/core';
 import Analytics from '@/lib/analytics';
 import { BetaFeatures, BetaFeatureKey, loadBetaFeatures, saveBetaFeatures } from '@/types/betaFeatures';
+import { DEFAULT_WHISPER_MODEL, localeNeedsWhisper } from '@/constants/modelDefaults';
 
 export interface OllamaModel {
   name: string;
@@ -209,6 +210,53 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       }
     };
     loadTranscriptConfig();
+  }, []);
+
+  // Hybrid transcription: auto-select Whisper for Russian/Kazakh system locale.
+  // Parakeet (default) can't transcribe RU/KK, so once the Whisper model has finished
+  // downloading (kicked off in onboarding) we switch the saved transcript config to it ONCE.
+  // Guards: only flips the default 'parakeet' (never overrides a deliberate user choice), and a
+  // localStorage marker prevents re-flipping, so the user stays in control afterwards. Until
+  // Whisper is ready, Parakeet keeps recording working - so this never blocks transcription.
+  useEffect(() => {
+    const autoSelectWhisperForLocale = async () => {
+      try {
+        if (typeof window !== 'undefined' && localStorage.getItem('siplinx.autoWhisperApplied')) return;
+
+        let loc: string | null = null;
+        try {
+          const { locale } = await import('@tauri-apps/plugin-os');
+          loc = await locale();
+        } catch {
+          loc = typeof navigator !== 'undefined' ? navigator.language : null;
+        }
+        if (!localeNeedsWhisper(loc)) return;
+
+        // Only act once the Whisper model is actually downloaded - otherwise retry next launch.
+        const hasWhisper = await invoke<boolean>('whisper_has_available_models').catch(() => false);
+        if (!hasWhisper) return;
+
+        // Respect a deliberate choice: if the user already picked a non-parakeet provider,
+        // mark done and leave it alone.
+        const current = await configService.getTranscriptConfig().catch(() => null);
+        if (current && current.provider && current.provider !== 'parakeet') {
+          localStorage.setItem('siplinx.autoWhisperApplied', '1');
+          return;
+        }
+
+        await invoke('api_save_transcript_config', {
+          provider: 'localWhisper',
+          model: DEFAULT_WHISPER_MODEL,
+          apiKey: null,
+        });
+        setTranscriptModelConfig({ provider: 'localWhisper', model: DEFAULT_WHISPER_MODEL, apiKey: null });
+        localStorage.setItem('siplinx.autoWhisperApplied', '1');
+        console.log('[ConfigContext] Hybrid: auto-selected Whisper for RU/KK locale');
+      } catch (e) {
+        console.warn('[ConfigContext] Hybrid Whisper auto-select skipped:', e);
+      }
+    };
+    autoSelectWhisperForLocale();
   }, []);
 
   // Sync language preference to Rust on mount (fixes startup desync bug)

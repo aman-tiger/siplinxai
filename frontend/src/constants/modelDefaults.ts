@@ -23,3 +23,14 @@ export const MODEL_DEFAULTS = {
   localWhisper: DEFAULT_WHISPER_MODEL,
   parakeet: DEFAULT_PARAKEET_MODEL,
 } as const;
+
+/**
+ * Whether the given system/app locale should default to Whisper for transcription.
+ * Parakeet does not support Russian or Kazakh, so for those locales we use local Whisper
+ * (which covers ~99 languages). For everything else Parakeet is faster and just as accurate.
+ * Used by the language-based ("hybrid") transcription engine auto-selection.
+ */
+export function localeNeedsWhisper(locale?: string | null): boolean {
+  const l = (locale ?? '').toLowerCase();
+  return l.startsWith('ru') || l.startsWith('kk');
+}
