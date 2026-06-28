@@ -21,6 +21,46 @@ const LOCAL_EXTRACT_CHUNK_TOKENS: usize = 1800;
 /// Overlap (tokens) between local extraction chunks, so facts spanning a boundary aren't lost.
 const LOCAL_EXTRACT_OVERLAP_TOKENS: usize = 200;
 
+/// Compose prompt for local models on Cyrillic transcripts. Produces a fixed, simple,
+/// table-free Russian report from the merged notes. Tiny models can't fill the multi-column
+/// meeting template without hallucinating, so for local providers we bypass the template.
+const RU_COMPOSE_PROMPT: &str = r#"Ты составляешь итоговый протокол встречи на русском языке по готовым заметкам. Пиши ТОЛЬКО по-русски.
+
+Используй ТОЛЬКО факты из заметок ниже. Ничего не добавляй и не выдумывай.
+
+Начни с заголовка `# <короткое название встречи, 3-6 слов>`. Затем разделы Markdown:
+## Краткое содержание
+(2-4 предложения: о чём была встреча)
+## Ключевые решения
+(маркированный список; если нет, напиши «Не зафиксировано»)
+## Задачи
+(список вида «исполнитель: задача (срок)»; если нет, напиши «Не зафиксировано»)
+## Обсуждение
+(маркированный список главных тем)
+## Открытые вопросы
+(маркированный список; если пусто, не выводи этот раздел)
+
+Без таблиц. Без вступления и заключения. Только сам отчёт."#;
+
+/// Compose prompt for local models on non-Cyrillic (English) transcripts.
+const EN_COMPOSE_PROMPT: &str = r#"You compose a final meeting report from ready-made notes. Write in the transcript's language.
+
+Use ONLY the facts in the notes below. Do not add or invent anything.
+
+Start with a title `# <short meeting name, 3-6 words>`. Then Markdown sections:
+## Summary
+(2-4 sentences: what the meeting was about)
+## Key Decisions
+(bullet list; if none, write "None recorded")
+## Action Items
+(list of "owner: task (due)"; if none, write "None recorded")
+## Discussion
+(bullet list of the main topics)
+## Open Questions
+(bullet list; if empty, omit this section)
+
+No tables. No preamble or closing. Only the report itself."#;
+
 /// Temperature for the local extraction step. Lower than the compose default so the model
 /// stays grounded in the transcript and produces stable, parseable JSON (less drift/invention).
 /// Only takes effect for the BuiltInAI sidecar; the Ollama HTTP path ignores temperature.
@@ -64,13 +104,20 @@ impl ActionItemRaw {
                 let owner = owner.trim();
                 let task = task.trim();
                 let due = due.trim();
+                // Tiny models leak placeholders ("[]") and "unknown"-style fillers; drop them
+                // so we never render "[].: task" or "task (не указано)".
+                let due_lower = due.to_lowercase();
+                let due_is_filler = is_junk(due)
+                    || due_lower.contains("указан")
+                    || due_lower.contains("unknown")
+                    || due_lower.contains("n/a");
                 let mut s = String::new();
-                if !owner.is_empty() {
+                if !is_junk(owner) {
                     s.push_str(owner);
                     s.push_str(": ");
                 }
                 s.push_str(task);
-                if !due.is_empty() {
+                if !due_is_filler {
                     s.push_str(" (");
                     s.push_str(due);
                     s.push(')');
@@ -118,7 +165,7 @@ impl MergedFacts {
     /// Render the merged facts as clean, deterministic notes for the compose step.
     /// The headers are scaffolding only - the compose step detects the language from the
     /// content (which stays in the transcript's own language) and writes its own headings.
-    fn render_notes(&self) -> String {
+    fn render_notes(&self, cyrillic: bool) -> String {
         fn section(out: &mut String, header: &str, items: &[String]) {
             out.push_str(header);
             out.push('\n');
@@ -134,12 +181,32 @@ impl MergedFacts {
             out.push('\n');
         }
 
+        // Localize the scaffolding headers so they match the content language and the compose
+        // step continues in that language.
+        let (h_dec, h_act, h_disc, h_q, h_part) = if cyrillic {
+            (
+                "РЕШЕНИЯ:",
+                "ЗАДАЧИ:",
+                "ОБСУЖДЕНИЕ:",
+                "ОТКРЫТЫЕ ВОПРОСЫ:",
+                "УЧАСТНИКИ:",
+            )
+        } else {
+            (
+                "DECISIONS:",
+                "ACTION ITEMS:",
+                "DISCUSSION:",
+                "OPEN QUESTIONS:",
+                "PARTICIPANTS:",
+            )
+        };
+
         let mut out = String::new();
-        section(&mut out, "DECISIONS:", &self.decisions);
-        section(&mut out, "ACTION ITEMS:", &self.action_items);
-        section(&mut out, "DISCUSSION:", &self.key_points);
-        section(&mut out, "OPEN QUESTIONS:", &self.questions);
-        section(&mut out, "PARTICIPANTS:", &self.participants);
+        section(&mut out, h_dec, &self.decisions);
+        section(&mut out, h_act, &self.action_items);
+        section(&mut out, h_disc, &self.key_points);
+        section(&mut out, h_q, &self.questions);
+        section(&mut out, h_part, &self.participants);
         out.trim_end().to_string()
     }
 }
@@ -153,6 +220,37 @@ fn dedup_key(s: &str) -> String {
         .join(" ")
 }
 
+/// True if a string carries no real content - empty, or only punctuation/brackets such as
+/// "[]", "].", "-". Tiny models sometimes emit these as placeholder/garbage values, and we
+/// must keep them out of the final report.
+fn is_junk(s: &str) -> bool {
+    let t = s.trim();
+    if t.is_empty() || !t.chars().any(|c| c.is_alphanumeric()) {
+        return true;
+    }
+    // Bracketed placeholders the model copies from the format example, e.g. "[Имя]", "<имя>",
+    // "[Name]". A real bullet is never fully wrapped in [] or <>.
+    (t.starts_with('[') && t.ends_with(']')) || (t.starts_with('<') && t.ends_with('>'))
+}
+
+/// Detect whether the transcript is primarily Cyrillic (Russian/Kazakh/...). Russian meetings
+/// routinely contain many English terms, so we treat the text as Cyrillic when at least ~25%
+/// of its letters are Cyrillic rather than requiring a strict majority. This drives the
+/// language of the extraction/compose prompts so the summary is written in the meeting's
+/// language instead of drifting to English (a tiny model copies the prompt's language).
+fn transcript_is_cyrillic(text: &str) -> bool {
+    let mut cyr = 0usize;
+    let mut lat = 0usize;
+    for c in text.chars() {
+        if ('\u{0400}'..='\u{04FF}').contains(&c) {
+            cyr += 1;
+        } else if c.is_ascii_alphabetic() {
+            lat += 1;
+        }
+    }
+    cyr > 0 && cyr * 3 >= lat
+}
+
 /// Deduplicate a list of strings, preserving first-seen order and dropping
 /// empty/placeholder entries (e.g. a lone dash that means "nothing here").
 fn dedup_preserve_order(items: impl IntoIterator<Item = String>) -> Vec<String> {
@@ -160,7 +258,7 @@ fn dedup_preserve_order(items: impl IntoIterator<Item = String>) -> Vec<String> 
     let mut out = Vec::new();
     for item in items {
         let trimmed = item.trim().to_string();
-        if trimmed.is_empty() || trimmed == "-" {
+        if is_junk(&trimmed) {
             continue;
         }
         let key = dedup_key(&trimmed);
@@ -387,6 +485,13 @@ pub async fn generate_meeting_summary(
 
     let is_local = provider == &LLMProvider::Ollama || provider == &LLMProvider::BuiltInAI;
 
+    // Detect the transcript language. A tiny local model writes in the language of its prompt,
+    // not by obeying an abstract "use the same language" rule, so we switch the extract/compose
+    // prompts to Russian when the transcript is Cyrillic. This is the fix for summaries coming
+    // out in English on Russian meetings.
+    let is_cyrillic = transcript_is_cyrillic(text);
+    info!("Transcript language detected as cyrillic: {}", is_cyrillic);
+
     // Strategy:
     // - Cloud providers (OpenAI/Claude/Groq/CustomOpenAI) are strong and have large context
     //   windows, so we compose directly from the raw transcript in a single pass.
@@ -421,35 +526,45 @@ pub async fn generate_meeting_summary(
         };
         let num_chunks = chunks.len();
 
-        // Single-purpose extraction prompt that returns a strict JSON object, with a one-shot
-        // example. A concrete example is the single biggest quality lever for tiny models: it
-        // locks the output format AND teaches the model to mirror the transcript's language
-        // (directly fighting English drift). The JSON is parsed and merged in code afterwards.
-        let extract_system_prompt = r#"You are an expert meeting-notes extractor. Read the transcript chunk and extract the raw facts as a SINGLE JSON object. Do NOT summarize, interpret, translate or invent.
+        // Single-purpose extraction prompt that returns a strict JSON object. Two findings from
+        // testing the 1B model directly on real meetings drive this design:
+        //  - The prompt MUST be in the target language; an English prompt makes the model answer
+        //    in English even when told to "keep the transcript's language". So we use a Russian
+        //    prompt for Cyrillic transcripts.
+        //  - The one-shot example MUST use placeholders (<имя>, <задача>), NOT concrete names:
+        //    a concrete example (Иван/Мария) makes the tiny model copy those names and invent
+        //    similar ones (Олег/Алексей) into unrelated chunks. Placeholders show format only.
+        let extract_system_prompt: &str = if is_cyrillic {
+            r#"Ты составляешь протокол встречи на русском языке. Верни СТРОГО один JSON-объект (без текста вокруг). Все значения — по-русски.
 
-Output ONLY a JSON object with EXACTLY these keys:
-{
-  "decisions": ["<a concrete decision that was made>"],
-  "action_items": [{"owner": "<who, or empty>", "task": "<what>", "due": "<when, or empty>"}],
-  "questions": ["<an open question or unresolved issue>"],
-  "key_points": ["<an important topic, argument or detail>"],
-  "participants": ["<a name or role mentioned>"]
-}
+Схема: {"decisions":[строки], "action_items":[{"owner":строка,"task":строка,"due":строка}], "questions":[строки], "key_points":[строки], "participants":[строки]}
 
-RULES:
-1. Use ONLY information present in the transcript chunk. Never invent names, dates, numbers or facts.
-2. Keep every string in the SAME language as the transcript. Do not translate.
-3. Keep wording close to the original.
-4. For action_items, include only the parts that are stated; set unknown fields to "".
-5. If a group has nothing, use an empty array [].
-6. Output the JSON object ONLY - no markdown, no code fences, no commentary before or after.
+Правила:
+- Бери ТОЛЬКО то, что ЯВНО сказано в стенограмме. Не выдумывай.
+- participants: только реальные имена людей, которые ЯВНО прозвучали в стенограмме. НЕ включай отделы, роли, числа, «службу поддержки», заполнители. Нет явных имён — [].
+- action_items: только явные поручения. Сомневаешься — не добавляй.
+- Лучше пустой список [], чем выдуманный пункт.
+- Фрагменты, искажённые распознаванием речи, игнорируй.
+- Пример ниже показывает ТОЛЬКО ФОРМАТ. НЕ копируй из него ничего.
 
-EXAMPLE
-<transcript>
-Иван: давайте запустим лендинг к пятнице. Мария, сделаешь макет? Мария: да, к среде. Решили бюджет не превышать 50 тысяч.
-</transcript>
-{"decisions":["Запустить лендинг к пятнице","Бюджет не превышать 50 тысяч"],"action_items":[{"owner":"Мария","task":"сделать макет лендинга","due":"среда"}],"questions":[],"key_points":["Сроки запуска лендинга","Ограничение бюджета 50 тысяч"],"participants":["Иван","Мария"]}
-(The example is in Russian only because its transcript is Russian. Always mirror the transcript's own language.)"#;
+ПРИМЕР ФОРМАТА (заполнители, не данные):
+{"decisions":["<решение>"],"action_items":[{"owner":"<имя>","task":"<задача>","due":"<срок>"}],"questions":["<вопрос>"],"key_points":["<тема>"],"participants":["<имя>"]}"#
+        } else {
+            r#"You are an expert meeting-notes extractor. Return STRICTLY one JSON object (no text around it). Keep all strings in the transcript's language.
+
+Schema: {"decisions":[strings], "action_items":[{"owner":string,"task":string,"due":string}], "questions":[strings], "key_points":[strings], "participants":[strings]}
+
+Rules:
+- Use ONLY what is EXPLICITLY in the transcript. Never invent.
+- participants: only names of real people. Do NOT include departments, roles or numbers. No explicit names -> [].
+- action_items: only explicit assignments. If unsure, skip.
+- An empty list [] is better than an invented item.
+- Ignore fragments garbled by speech recognition.
+- The example below shows FORMAT ONLY. Do NOT copy anything from it.
+
+FORMAT EXAMPLE (placeholders, not data):
+{"decisions":["<decision>"],"action_items":[{"owner":"<name>","task":"<task>","due":"<when>"}],"questions":["<question>"],"key_points":["<topic>"],"participants":["<name>"]}"#
+        };
         let extract_user_template = "<transcript>\n{}\n</transcript>";
 
         let mut raw_extracts: Vec<String> = Vec::new();
@@ -537,22 +652,44 @@ EXAMPLE
             raw_extracts.join("\n")
         } else {
             info!("Merged structured facts into deduplicated notes for compose");
-            merged.render_notes()
+            merged.render_notes(is_cyrillic)
         };
     }
 
-    info!("Generating final markdown report with template: {}", template_id);
+    info!(
+        "Generating final report (local={}, cyrillic={}, template={})",
+        is_local, is_cyrillic, template_id
+    );
 
-    // Load the template using the provided template_id
-    let template = templates::get_template(template_id)
-        .map_err(|e| format!("Failed to load template '{}': {}", template_id, e))?;
+    let final_system_prompt: String;
+    let mut final_user_prompt: String;
 
-    // Generate markdown structure and section instructions using template methods
-    let clean_template_markdown = template.to_markdown_structure();
-    let section_instructions = template.to_section_instructions();
+    if is_local {
+        // Tiny local models can't fill the wide multi-column meeting template without
+        // hallucinating owners/timestamps, and they drift to English when prompted in English.
+        // So we bypass the template and compose a fixed, simple, language-matched report from
+        // the already-clean merged notes.
+        final_system_prompt = if is_cyrillic {
+            RU_COMPOSE_PROMPT.to_string()
+        } else {
+            EN_COMPOSE_PROMPT.to_string()
+        };
+        let (open_tag, close_tag) = if is_cyrillic {
+            ("<заметки>", "</заметки>")
+        } else {
+            ("<notes>", "</notes>")
+        };
+        final_user_prompt = format!("{}\n{}\n{}", open_tag, content_to_summarize, close_tag);
+    } else {
+        // Cloud providers (OpenAI/Claude/Groq/CustomOpenAI) handle the user-selected template
+        // and its tables well, so keep the template-driven compose for them.
+        let template = templates::get_template(template_id)
+            .map_err(|e| format!("Failed to load template '{}': {}", template_id, e))?;
+        let clean_template_markdown = template.to_markdown_structure();
+        let section_instructions = template.to_section_instructions();
 
-    let mut final_system_prompt = format!(
-        r#"You are an expert meeting summarizer. Generate a final meeting report by filling in the provided Markdown template based on the source text.
+        final_system_prompt = format!(
+            r#"You are an expert meeting summarizer. Generate a final meeting report by filling in the provided Markdown template based on the source text.
 
 **CRITICAL INSTRUCTIONS:**
 1. Only use information present in the source text; do not add or infer anything.
@@ -570,26 +707,18 @@ EXAMPLE
 {}
 </template>
 "#,
-        section_instructions, clean_template_markdown
-    );
-
-    // Local models can't reliably produce wide multi-column tables and will hallucinate
-    // missing columns (timestamps, transcript references). Steer them to simple bullets and
-    // an explicit no-invention rule. This overrides the "keep table layout" hint above.
-    if is_local {
-        final_system_prompt.push_str(
-            "\n**SMALL-MODEL OUTPUT RULES (override any table format above):**\n- Use simple Markdown: short paragraphs and `- ` bullet lists only. Do NOT output multi-column tables.\n- For action items use one bullet each: `- owner: task (due)`. Omit any part that is unknown - never invent owners, dates, timestamps or transcript references.\n- Be concise and factual. Do not repeat the same point twice.\n",
+            section_instructions, clean_template_markdown
         );
-    }
 
-    let mut final_user_prompt = format!(
-        r#"
+        final_user_prompt = format!(
+            r#"
 <transcript_chunks>
 {}
 </transcript_chunks>
 "#,
-        content_to_summarize
-    );
+            content_to_summarize
+        );
+    }
 
     if !custom_prompt.is_empty() {
         final_user_prompt.push_str("\n\nUser Provided Context:\n\n<user_context>\n");
