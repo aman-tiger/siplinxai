@@ -11,8 +11,9 @@ import * as onboarding from "./areas/onboarding";
 import * as settings from "./areas/settings";
 import * as dialogs from "./areas/dialogs";
 import * as misc from "./areas/misc";
+import * as meetingDetect from "./areas/meetingDetect";
 
-const areas = [common, recording, sidebar, onboarding, settings, dialogs, misc];
+const areas = [common, recording, sidebar, onboarding, settings, dialogs, misc, meetingDetect];
 
 const en: Dict = Object.assign({}, ...areas.map((a) => a.en));
 const ru: Dict = Object.assign({}, ...areas.map((a) => a.ru));

@@ -20,6 +20,7 @@ import { OnboardingProvider } from '@/contexts/OnboardingContext'
 import { OnboardingFlow } from '@/components/onboarding'
 import { loadBetaFeatures } from '@/types/betaFeatures'
 import { DownloadProgressToastProvider } from '@/components/shared/DownloadProgressToast'
+import { MeetingDetectedBanner } from '@/components/shared/MeetingDetectedBanner'
 import { UpdateCheckProvider } from '@/components/UpdateCheckProvider'
 import { RecordingPostProcessingProvider } from '@/contexts/RecordingPostProcessingProvider'
 import { ImportAudioDialog, ImportDropOverlay } from '@/components/ImportAudio'
@@ -261,6 +262,8 @@ export default function RootLayout({
                                   <div className="flex">
                                     <Sidebar />
                                     <MainContent>{children}</MainContent>
+                                    {/* Автодетект встречи — плашка «Записать встречу?» */}
+                                    <MeetingDetectedBanner />
                                   </div>
                                 )}
                               </AuthGate>

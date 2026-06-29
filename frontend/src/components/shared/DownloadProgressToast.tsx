@@ -6,6 +6,25 @@ import { toast } from 'sonner';
 import { X, Check, ArrowBigDownDash } from 'lucide-react';
 import { Analytics } from '@/lib/analytics';
 
+// Тихий режим первичной загрузки моделей: флаг ставит OnboardingContext.
+// Пока он стоит, тосты прогресса/успеха не показываем — юзер не должен знать,
+// что модели докачиваются в фоне. Снимаем флаг, когда обе модели готовы.
+const SILENT_DOWNLOADS_FLAG = 'siplinx_silent_downloads';
+function isSilentDownloads(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem(SILENT_DOWNLOADS_FLAG) === '1';
+  } catch {
+    return false;
+  }
+}
+function clearSilentDownloads(): void {
+  try {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(SILENT_DOWNLOADS_FLAG);
+  } catch {
+    /* noop */
+  }
+}
+
 interface DownloadProgress {
   modelName: string;
   displayName: string;
@@ -160,6 +179,9 @@ export function useDownloadProgressToast() {
   }, []);
 
   const showDownloadToast = useCallback((download: DownloadProgress) => {
+    // В тихом режиме (первичная загрузка после онбординга) ничего не показываем.
+    if (isSilentDownloads()) return;
+
     const toastId = `download-${download.modelName}`;
 
     // Determine duration based on status
@@ -381,6 +403,12 @@ export function useDownloadProgressToast() {
       allSetShownRef.current = true;
       // Dismiss in-progress toasts first
       completedRef.current.forEach(k => toast.dismiss(`download-${k}`));
+      // Тихий режим: модели готовы — просто снимаем флаг, без победного тоста.
+      // Дальнейшие (ручные) загрузки из настроек снова будут показывать тосты.
+      if (isSilentDownloads()) {
+        clearSilentDownloads();
+        return;
+      }
       toast.success("You're all set", {
         description: 'AI is ready. Enjoy Siplinx AI!',
         duration: 5000,

@@ -1,66 +1,61 @@
 import React, { useEffect, useRef } from 'react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Analytics } from '@/lib/analytics';
-import {
-  WelcomeStep,
-  PermissionsStep,
-  DownloadProgressStep,
-  SetupOverviewStep,
-} from './steps';
+import { WelcomeStep } from './steps';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
+/**
+ * Single-screen onboarding.
+ *
+ * Раньше было 4 экрана (Welcome → Setup → Download → Permissions). Теперь только
+ * Welcome: модели качаются молча в фоне сразу при маунте (юзер этого не видит),
+ * инициализация БД и определение рекомендованной модели идут в OnboardingProvider,
+ * а разрешения (mic/system audio) запрашиваются по месту при первой записи.
+ */
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const { currentStep, startBackgroundDownloads, parakeetDownloaded, summaryModelDownloaded, isBackgroundDownloading } = useOnboarding();
-  const [isMac, setIsMac] = React.useState(false);
+  const {
+    startBackgroundDownloads,
+    completeOnboarding,
+    parakeetDownloaded,
+    summaryModelDownloaded,
+    isBackgroundDownloading,
+  } = useOnboarding();
   const downloadsStartedRef = useRef(false);
 
+  // Track view once
   useEffect(() => {
-    const checkPlatform = async () => {
-      try {
-        const { platform } = await import('@tauri-apps/plugin-os');
-        setIsMac(platform() === 'macos');
-      } catch (e) {
-        console.error('Failed to detect platform:', e);
-        setIsMac(navigator.userAgent.includes('Mac'));
-      }
-    };
-    checkPlatform();
+    Analytics.track('onboarding_step_viewed', { step: 'welcome' });
   }, []);
 
-  // Track step views
-  useEffect(() => {
-    const stepNames: Record<number, string> = { 1: 'welcome', 2: 'setup', 3: 'download', 4: 'permissions' };
-    const name = stepNames[currentStep];
-    if (name) Analytics.track('onboarding_step_viewed', { step: name });
-  }, [currentStep]);
-
-  // Start downloads immediately when onboarding mounts so they run in background
-  // during the welcome/setup steps.
+  // Тихо стартуем загрузку моделей в фоне сразу при открытии первого экрана.
+  // Команды качают модели на Rust-стороне и продолжаются даже после reload в main app.
   useEffect(() => {
     if (downloadsStartedRef.current) return;
     if (parakeetDownloaded && summaryModelDownloaded) return;
     if (isBackgroundDownloading) return;
     downloadsStartedRef.current = true;
     startBackgroundDownloads(true).catch(() => {
-      // Will be retried from DownloadProgressStep if needed
+      // Загрузка повторно дёрнется из main app, если не стартовала
     });
   }, []);
 
-  // 4-Step Onboarding Flow (System-Recommended Models):
-  // Step 1: Welcome - Introduce Meetily features
-  // Step 2: Setup Overview - Database initialization + show recommended downloads
-  // Step 3: Download Progress - Download Parakeet + Gemma (auto-selected based on RAM)
-  // Step 4: Permissions - Request mic + system audio (macOS only)
+  // Кнопка «Начать» завершает онбординг и уводит в приложение.
+  // Загрузка моделей при этом продолжается в фоне (Rust), молча.
+  const handleGetStarted = async () => {
+    try {
+      await completeOnboarding();
+    } catch (e) {
+      console.error('[OnboardingFlow] completeOnboarding failed:', e);
+    }
+    onComplete();
+  };
 
   return (
     <div className="onboarding-flow">
-      {currentStep === 1 && <WelcomeStep />}
-      {currentStep === 2 && <SetupOverviewStep />}
-      {currentStep === 3 && <DownloadProgressStep />}
-      {currentStep === 4 && isMac && <PermissionsStep />}
+      <WelcomeStep onGetStarted={handleGetStarted} />
     </div>
   );
 }

@@ -41,6 +41,7 @@ pub mod audio;
 pub mod config;
 pub mod console_utils;
 pub mod database;
+pub mod meeting_detector;
 pub mod notifications;
 pub mod ollama;
 pub mod onboarding;
@@ -404,6 +405,7 @@ pub fn run() {
             None::<notifications::manager::NotificationManager<tauri::Wry>>,
         )) as NotificationManagerState<tauri::Wry>)
         .manage(audio::init_system_audio_state())
+        .manage(meeting_detector::MeetingDetectorState::new())
         .manage(summary::summary_engine::ModelManagerState(Arc::new(tokio::sync::Mutex::new(None))))
         .setup(|_app| {
             log::info!("Application setup complete");
@@ -503,6 +505,9 @@ pub fn run() {
             start_recording,
             stop_recording,
             is_recording,
+            meeting_detector::commands::start_meeting_detection,
+            meeting_detector::commands::stop_meeting_detection,
+            meeting_detector::commands::get_meeting_detection_active,
             get_transcription_status,
             read_audio_file,
             save_transcript,

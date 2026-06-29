@@ -427,6 +427,17 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     console.log('[OnboardingContext] Starting background downloads, includeGemma:', includeGemma);
     setIsBackgroundDownloading(true);
 
+    // Тихий режим: первичная загрузка моделей не показывает тосты пользователю.
+    // Флаг переживает reload (localStorage) и снимается, когда обе модели готовы
+    // (см. DownloadProgressToast). Так юзер не видит, что что-то качается.
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('siplinx_silent_downloads', '1');
+      }
+    } catch {
+      /* localStorage недоступен — не критично */
+    }
+
     try {
       // Start Parakeet download first (speech recognition - always required as the safe
       // baseline/fallback; onboarding completes on it).

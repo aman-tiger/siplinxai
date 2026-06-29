@@ -5,7 +5,12 @@ import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useT } from '@/contexts/I18nContext';
 
-export function WelcomeStep() {
+interface WelcomeStepProps {
+  /** Если передан, кнопка завершает онбординг (single-screen flow). Иначе листает дальше. */
+  onGetStarted?: () => void;
+}
+
+export function WelcomeStep({ onGetStarted }: WelcomeStepProps = {}) {
   const { goNext } = useOnboarding();
   const t = useT();
 
@@ -55,12 +60,11 @@ export function WelcomeStep() {
         {/* CTA Section */}
         <div className="w-full max-w-xs space-y-3">
           <Button
-            onClick={goNext}
+            onClick={onGetStarted ?? goNext}
             className="w-full h-11 bg-gray-900 hover:bg-gray-800 text-white"
           >
             {t('onboarding.welcome.cta')}
           </Button>
-          <p className="text-xs text-center text-gray-500">{t('onboarding.welcome.time')}</p>
         </div>
       </div>
     </OnboardingContainer>
