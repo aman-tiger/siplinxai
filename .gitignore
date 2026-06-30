@@ -77,4 +77,5 @@ experiments/
 target/
 
 frontend/src-tauri/binaries/
-Cargo.lock
+# Cargo.lock is committed: this is an app workspace, and a pinned lock keeps CI builds
+# reproducible. Leaving it unpinned let a fresh `time 0.3.52` break `cookie 0.18.1` in CI.

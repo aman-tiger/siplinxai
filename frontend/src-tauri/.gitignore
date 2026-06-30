@@ -3,5 +3,5 @@
 /target/
 /gen/schemas
 
-Cargo.lock
+# Cargo.lock committed (workspace lock lives at repo root) for reproducible CI builds.
 Cargo.toml.orig
