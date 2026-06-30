@@ -5,9 +5,11 @@
 
 /**
  * Default Whisper model for transcription when no preference is configured.
- * This is the recommended balance of accuracy and speed.
+ * large-v3 quantized (q5_0): full-decoder large-v3 accuracy on RU/KK (the distilled turbo
+ * model dropped the tail of long sentences), at ~1 GB — smaller than turbo's 1.5 GB.
+ * Keep in sync with DEFAULT_WHISPER_MODEL in src-tauri/src/config.rs.
  */
-export const DEFAULT_WHISPER_MODEL = 'large-v3-turbo';
+export const DEFAULT_WHISPER_MODEL = 'large-v3-q5_0';
 
 /**
  * Default Parakeet model for transcription when no preference is configured.

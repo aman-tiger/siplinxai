@@ -4,8 +4,10 @@
 /// Used across database initialization, import, and retranscription.
 
 /// Default Whisper model for transcription when no preference is configured.
-/// This is the recommended balance of accuracy and speed.
-pub const DEFAULT_WHISPER_MODEL: &str = "large-v3-turbo";
+/// large-v3 quantized (q5_0): full 32-layer decoder = large-v3 accuracy on Russian/Kazakh,
+/// where the distilled turbo model dropped the tail of long sentences. ~1 GB (smaller than
+/// turbo's 1.5 GB) and fast enough for real-time live transcription.
+pub const DEFAULT_WHISPER_MODEL: &str = "large-v3-q5_0";
 
 /// Default Parakeet model for transcription when no preference is configured.
 /// This is the quantized version optimized for speed.

@@ -540,11 +540,14 @@ impl WhisperEngine {
         params.set_language(language_code);
         params.set_translate(should_translate);
 
-        // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
-        // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
-        // complete, valid transcriptions. Disabling timestamps forces whisper to return ALL text.
-        params.set_no_timestamps(true);     // Prevent timestamp-based segment skipping
-        params.set_token_timestamps(true);  // Keep for any timestamp-aware features
+        // CONTINUATION FIX (RU regression): keep whisper.cpp's internal timestamps ENABLED.
+        // Disabling them removed the decoder's mid-window "continue" mechanism, so on a long,
+        // pause-less utterance the model emitted <|endoftext|> after the first clause and DROPPED
+        // the rest of the sentence. With timestamps on, whisper splits a long utterance into
+        // sub-segments and keeps decoding to the very end. Short clips are padded below to avoid
+        // the empty-chunk "single timestamp ending" skip that this flag was originally fighting.
+        params.set_no_timestamps(false);
+        params.set_token_timestamps(false);
 
         // PERFORMANCE: Disable ALL whisper.cpp internal printing
         // This reduces C library log spam significantly
@@ -553,28 +556,47 @@ impl WhisperEngine {
         params.set_print_realtime(false);     // Don't print realtime info
         params.set_print_timestamps(false);   // Don't print timestamps
 
-        // Additional suppression to reduce C library verbosity
         params.set_suppress_blank(true);
-        params.set_suppress_non_speech_tokens(true);
-        params.set_temperature(adaptive_config.temperature);
+        // Do NOT suppress non-speech tokens: too aggressive for non-English, it trims valid
+        // trailing words (e.g. the quiet end of a long Russian sentence).
+        params.set_suppress_non_speech_tokens(false);
+        // Temperature fallback: start greedy (0.0) and only step up when a decode fails the
+        // entropy/logprob checks. A fixed non-zero temperature left no recovery path for a
+        // segment that decoded badly, so it was silently dropped.
+        params.set_temperature(0.0);
+        params.set_temperature_inc(0.2);
         params.set_max_initial_ts(1.0);
         params.set_entropy_thold(2.4);
         params.set_logprob_thold(-1.0);
-        // BALANCED FIX: Lowered from 0.75 to 0.55 to allow quiet speech detection
-        // Previous value was too aggressive and rejected valid quiet speech
-        // 0.55 is balanced - prevents hallucinations while preserving quiet speech
-        params.set_no_speech_thold(0.55);
-        params.set_max_len(200);
+        // whisper.cpp default; higher than 0.55 = less aggressive silence rejection.
+        params.set_no_speech_thold(0.6);
+        params.set_max_len(0);                // no artificial per-segment length cap
         params.set_single_segment(false);
 
-        // Set thread count based on hardware (if supported by whisper.cpp)
-        if let Some(_max_threads) = adaptive_config.max_threads {
-            // Note: whisper.cpp may or may not expose thread control through params
-            // Removed debug log to reduce I/O overhead in transcription hot path
+        // Prime the decoder with a short native-language sentence so it locks onto the correct
+        // language/script and keeps long sentences coherent. Only for languages where Parakeet
+        // can't help and auto-detect on short chunks is unreliable.
+        match language_code {
+            Some("ru") => params.set_initial_prompt("Расшифровка делового совещания на русском языке."),
+            Some("kk") => params.set_initial_prompt("Іскерлік кездесудің қазақ тіліндегі жазбасы."),
+            _ => {}
+        }
+
+        // Use the hardware-profiled thread count so the larger RU model keeps up in real time.
+        if let Some(max_threads) = adaptive_config.max_threads {
+            params.set_n_threads(max_threads as i32);
         }
 
         let duration_seconds = audio_data.len() as f64 / 16000.0;
         let is_partial = duration_seconds < 15.0; // Consider chunks under 15s as partial
+
+        // Pad very short clips to 1s of audio. With internal timestamps re-enabled, whisper.cpp
+        // can skip a sub-second window as an empty "single timestamp" chunk; a trailing pad of
+        // silence gives the decoder enough context to emit the segment instead of dropping it.
+        let mut audio_data = audio_data;
+        if audio_data.len() < 16000 {
+            audio_data.resize(16000, 0.0);
+        }
 
         // PERFORMANCE: Suppress verbose C library logs during transcription
         // This hides whisper_full_with_state debug logs and beam search details
@@ -657,11 +679,11 @@ impl WhisperEngine {
         params.set_language(language_code);
         params.set_translate(should_translate);
 
-        // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
-        // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
-        // complete, valid transcriptions. Disabling timestamps forces whisper to return ALL text.
-        params.set_no_timestamps(true);     // Prevent timestamp-based segment skipping
-        params.set_token_timestamps(true);  // Keep for any timestamp-aware features
+        // CONTINUATION FIX (RU regression): keep internal timestamps ENABLED so whisper.cpp
+        // segments long, pause-less utterances and decodes them to the end instead of emitting an
+        // early <|endoftext|> and dropping the tail. Short clips are padded to 1s below.
+        params.set_no_timestamps(false);
+        params.set_token_timestamps(false);
 
         params.set_print_special(false);
         params.set_print_progress(false);
@@ -670,19 +692,24 @@ impl WhisperEngine {
 
         // BALANCED settings - good quality with reasonable speed
         params.set_suppress_blank(true);
-        params.set_suppress_non_speech_tokens(true);
-        params.set_temperature(0.3);             // Lower than 0.4 for consistency, higher than 0.0 for quality
+        // Non-speech suppression trims valid non-English words; keep it off.
+        params.set_suppress_non_speech_tokens(false);
+        // Greedy start + fallback step, so a badly decoded segment is retried, not dropped.
+        params.set_temperature(0.0);
+        params.set_temperature_inc(0.2);
         params.set_max_initial_ts(1.0);
         params.set_entropy_thold(2.4);
         params.set_logprob_thold(-1.0);
-        // BALANCED FIX: Lowered from 0.75 to 0.55 to allow quiet speech detection
-        // Previous value was too aggressive and rejected valid quiet speech
-        // 0.55 is balanced - prevents hallucinations while preserving quiet speech
-        params.set_no_speech_thold(0.55);
+        params.set_no_speech_thold(0.6);
 
-        // Reasonable length limits
-        params.set_max_len(200);                 // Reasonable length
+        params.set_max_len(0);                   // no artificial per-segment length cap
         params.set_single_segment(false);        // Allow multiple segments for better accuracy
+
+        match language_code {
+            Some("ru") => params.set_initial_prompt("Расшифровка делового совещания на русском языке."),
+            Some("kk") => params.set_initial_prompt("Іскерлік кездесудің қазақ тіліндегі жазбасы."),
+            _ => {}
+        }
 
         // Note: compression_ratio_threshold would be ideal but not available in current whisper-rs
         // This would help detect repetitive outputs: params.set_compression_ratio_threshold(2.4);
@@ -736,6 +763,12 @@ impl WhisperEngine {
             log::info!("Starting transcription #{} of {} samples ({:.1}s duration)",
                       transcription_count, audio_data.len(), duration_seconds);
         }
+        // Pad sub-second clips so re-enabled timestamps don't skip them (see confidence path).
+        let mut audio_data = audio_data;
+        if audio_data.len() < 16000 {
+            audio_data.resize(16000, 0.0);
+        }
+
         let mut state = ctx.create_state()?;
         state.full(params, &audio_data)?;
 

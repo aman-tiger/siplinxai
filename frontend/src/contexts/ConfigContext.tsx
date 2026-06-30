@@ -141,7 +141,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('primaryLanguage');
-      return saved || 'auto';
+      if (saved) return saved;
+      // No saved choice: for RU/KK browsers force the spoken language. Per-segment auto-detect
+      // on short VAD chunks is unreliable for Russian and drops/garbles words; an explicit
+      // language locks Whisper to the right script. The OS-locale effect below refines this.
+      const nav = navigator.language?.toLowerCase() ?? '';
+      if (nav.startsWith('ru')) return 'ru';
+      if (nav.startsWith('kk')) return 'kk';
+      return 'auto';
     }
     return 'auto';
   });
@@ -212,16 +219,17 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     loadTranscriptConfig();
   }, []);
 
-  // Hybrid transcription: auto-select Whisper for Russian/Kazakh system locale.
-  // Parakeet (default) can't transcribe RU/KK, so once the Whisper model has finished
-  // downloading (kicked off in onboarding) we switch the saved transcript config to it ONCE.
-  // Guards: only flips the default 'parakeet' (never overrides a deliberate user choice), and a
-  // localStorage marker prevents re-flipping, so the user stays in control afterwards. Until
-  // Whisper is ready, Parakeet keeps recording working - so this never blocks transcription.
+  // Hybrid transcription for Russian/Kazakh locales. Two jobs, both safe to run every launch:
+  //   1. Force the spoken language (Whisper auto-detect on short chunks is unreliable for RU).
+  //   2. Select / upgrade the local Whisper model to DEFAULT_WHISPER_MODEL (large-v3-q5_0).
+  // Parakeet can't do RU/KK, so we move to Whisper once its model is actually downloaded; until
+  // then Parakeet (or an older Whisper model) keeps recording working. We never override a
+  // deliberate non-Whisper provider choice. The model marker is keyed by model name, so bumping
+  // DEFAULT_WHISPER_MODEL (e.g. turbo -> large-v3-q5_0) migrates existing users exactly once.
   useEffect(() => {
     const autoSelectWhisperForLocale = async () => {
       try {
-        if (typeof window !== 'undefined' && localStorage.getItem('siplinx.autoWhisperApplied')) return;
+        if (typeof window === 'undefined') return;
 
         let loc: string | null = null;
         try {
@@ -232,26 +240,49 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         }
         if (!localeNeedsWhisper(loc)) return;
 
-        // Only act once the Whisper model is actually downloaded - otherwise retry next launch.
-        const hasWhisper = await invoke<boolean>('whisper_has_available_models').catch(() => false);
-        if (!hasWhisper) return;
+        // (1) Language: if the user hasn't deliberately picked one, lock to the OS-locale language.
+        if (!localStorage.getItem('primaryLanguage')) {
+          const lang = (loc ?? '').toLowerCase().startsWith('kk') ? 'kk' : 'ru';
+          setSelectedLanguage(lang);
+          invoke('set_language_preference', { language: lang }).catch(() => {});
+        }
 
-        // Respect a deliberate choice: if the user already picked a non-parakeet provider,
-        // mark done and leave it alone.
+        // (2) Model: stop if we've already applied the current default for this install.
+        if (localStorage.getItem('siplinx.whisperModelApplied') === DEFAULT_WHISPER_MODEL) return;
+
+        // Respect a deliberate non-Whisper provider (e.g. a cloud API the user configured).
         const current = await configService.getTranscriptConfig().catch(() => null);
-        if (current && current.provider && current.provider !== 'parakeet') {
-          localStorage.setItem('siplinx.autoWhisperApplied', '1');
+        if (current?.provider && current.provider !== 'parakeet' && current.provider !== 'localWhisper') {
+          localStorage.setItem('siplinx.whisperModelApplied', DEFAULT_WHISPER_MODEL);
           return;
         }
 
+        // Is the desired model downloaded yet?
+        const models = await invoke<Array<{ name: string; status: unknown }>>('whisper_get_available_models').catch(() => []);
+        const desired = models.find((m) => m.name === DEFAULT_WHISPER_MODEL);
+        const isAvailable = desired?.status === 'Available';
+
+        if (!isAvailable) {
+          // Kick the download once; keep the current working model until it lands. Retry next launch.
+          const kickKey = `siplinx.whisperDownloadKicked.${DEFAULT_WHISPER_MODEL}`;
+          if (!localStorage.getItem(kickKey)) {
+            localStorage.setItem(kickKey, '1');
+            console.log(`[ConfigContext] Hybrid: downloading ${DEFAULT_WHISPER_MODEL} in background`);
+            invoke('whisper_download_model', { modelName: DEFAULT_WHISPER_MODEL })
+              .catch((err) => console.error('[ConfigContext] Whisper model download failed:', err));
+          }
+          return;
+        }
+
+        // Model is ready: point the saved transcript config at it.
         await invoke('api_save_transcript_config', {
           provider: 'localWhisper',
           model: DEFAULT_WHISPER_MODEL,
           apiKey: null,
         });
         setTranscriptModelConfig({ provider: 'localWhisper', model: DEFAULT_WHISPER_MODEL, apiKey: null });
-        localStorage.setItem('siplinx.autoWhisperApplied', '1');
-        console.log('[ConfigContext] Hybrid: auto-selected Whisper for RU/KK locale');
+        localStorage.setItem('siplinx.whisperModelApplied', DEFAULT_WHISPER_MODEL);
+        console.log(`[ConfigContext] Hybrid: selected Whisper ${DEFAULT_WHISPER_MODEL} for RU/KK locale`);
       } catch (e) {
         console.warn('[ConfigContext] Hybrid Whisper auto-select skipped:', e);
       }
