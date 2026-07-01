@@ -172,13 +172,18 @@ impl HardwareProfile {
 
     /// Generate adaptive Whisper configuration based on hardware
     pub fn get_whisper_config(&self) -> AdaptiveWhisperConfig {
-        // Windows-specific override: Always use beam size 2 for stability
+        // Windows-specific override: beam size 2 for stability, and GPU FORCED OFF.
+        // The release build ships the Vulkan backend; loading a Whisper model onto consumer/
+        // integrated GPUs via Vulkan triggers a GPU driver reset (TDR / LiveKernelEvent 141) that
+        // crashes the whole app at record start. A TDR can't be caught, so we prevent GPU offload
+        // entirely and run Whisper on CPU. macOS keeps Metal (stable). DEFAULT_WHISPER_MODEL on
+        // Windows is a lighter model so CPU transcription stays real-time.
         #[cfg(target_os = "windows")]
         {
             return AdaptiveWhisperConfig {
                 beam_size: 2,
                 temperature: 0.2,
-                use_gpu: self.has_gpu_acceleration,
+                use_gpu: false,
                 max_threads: Some(self.cpu_cores.min(8) as usize),
                 chunk_size_preference: ChunkSizePreference::Balanced,
             };

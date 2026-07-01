@@ -3,13 +3,21 @@
  * IMPORTANT: Keep in sync with Rust constants in src-tauri/src/config.rs
  */
 
+/** True when running in the Windows desktop webview (WebView2 UA contains "Windows NT"). */
+function isWindowsPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /Windows/i.test(navigator.userAgent || '');
+}
+
 /**
- * Default Whisper model for transcription when no preference is configured.
- * large-v3 quantized (q5_0): full-decoder large-v3 accuracy on RU/KK (the distilled turbo
- * model dropped the tail of long sentences), at ~1 GB — smaller than turbo's 1.5 GB.
+ * Default Whisper model for transcription when no preference is configured. Platform-aware:
+ * - macOS (Metal GPU): large-v3-q5_0 — full-decoder large-v3 accuracy on RU/KK, GPU-accelerated
+ *   and real-time.
+ * - Windows: GPU is forced off (loading Whisper via Vulkan crashes the driver — TDR), so Whisper
+ *   runs on CPU; medium-q5_0 keeps live transcription real-time.
  * Keep in sync with DEFAULT_WHISPER_MODEL in src-tauri/src/config.rs.
  */
-export const DEFAULT_WHISPER_MODEL = 'large-v3-q5_0';
+export const DEFAULT_WHISPER_MODEL = isWindowsPlatform() ? 'medium-q5_0' : 'large-v3-q5_0';
 
 /**
  * Default Parakeet model for transcription when no preference is configured.

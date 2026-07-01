@@ -4,9 +4,13 @@
 /// Used across database initialization, import, and retranscription.
 
 /// Default Whisper model for transcription when no preference is configured.
-/// large-v3 quantized (q5_0): full 32-layer decoder = large-v3 accuracy on Russian/Kazakh,
-/// where the distilled turbo model dropped the tail of long sentences. ~1 GB (smaller than
-/// turbo's 1.5 GB) and fast enough for real-time live transcription.
+/// macOS (Metal GPU): large-v3 quantized (q5_0) — full 32-layer decoder = large-v3 accuracy on
+/// Russian/Kazakh, GPU-accelerated and real-time.
+/// Windows: GPU is forced off (Vulkan crashes the driver — see hardware_detector.rs), so Whisper
+/// runs on CPU; use the lighter medium-q5_0 so live transcription stays real-time.
+#[cfg(target_os = "windows")]
+pub const DEFAULT_WHISPER_MODEL: &str = "medium-q5_0";
+#[cfg(not(target_os = "windows"))]
 pub const DEFAULT_WHISPER_MODEL: &str = "large-v3-q5_0";
 
 /// Default Parakeet model for transcription when no preference is configured.
